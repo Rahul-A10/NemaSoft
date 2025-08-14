@@ -533,7 +533,7 @@ void MainWindow::onStartDuocam() {
     }
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(2, 1);
+    m_microCam1Op.camWorker = new CameraWorker(1, 1);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(), (float)m_microCam1View->height() / m_microCam1Op.camWorker->getFrameHeight());
@@ -578,7 +578,7 @@ void MainWindow::onCaptureMacroImg() {
 	// LOG_INFO("Captured frame"); for later use
 
     m_arducamOp.camWorker->setCaptureImg(true);
-	QThread::msleep(30); // waiting to capture the image
+	QThread::msleep(5000); // waiting to capture the image
 	m_currentMacroImg = m_arducamOp.camWorker->getCaturedFrame().clone();
 
 

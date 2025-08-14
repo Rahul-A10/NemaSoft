@@ -13,9 +13,9 @@ CameraWorker::CameraWorker(int camIndex, int camType, QObject* parent)
 
     if (camIndex != IMG) {
         m_cap.open(m_cameraIndex);
-        //m_cap.set(cv::CAP_PROP_FRAME_WIDTH, 320);
-        //m_cap.set(cv::CAP_PROP_FRAME_HEIGHT, 240);
-        //m_cap.set(cv::CAP_PROP_FPS, 12);
+        m_cap.set(cv::CAP_PROP_FRAME_WIDTH, 3840);
+        m_cap.set(cv::CAP_PROP_FRAME_HEIGHT, 2160);
+        m_cap.set(cv::CAP_PROP_FPS, 20);
         if (!m_cap.isOpened()) {
             LOG_CRITICAL("Failed to open camera with index: " << m_cameraIndex);
             return;
@@ -100,7 +100,7 @@ void CameraWorker::process() {
 
             // for large images, resizing helps with UI FPS
             if (frame.cols > 1280 || frame.rows > 720)
-                cv::resize(frame, frame, cv::Size(1280, 720));
+                cv::resize(frame, frame, cv::Size(3840, 2160));
 
             QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_RGB888);
             emit frameReady(qImage.copy(), m_cameraType);
