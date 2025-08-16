@@ -9,6 +9,7 @@
 
 #define CONFIDENCE_THRESHOLD 0.35f
 #define OVERLAP_THRESHOLD 0.45f
+#define TILE_FACTOR 4
 
 class InferenceWorker : public QObject {
     Q_OBJECT
