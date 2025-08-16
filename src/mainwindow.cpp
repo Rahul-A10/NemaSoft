@@ -497,7 +497,7 @@ void MainWindow::onStartArducam() {
 
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
-	m_arducamOp.camWorker = new CameraWorker(0, 0);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(camIndex, 0);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
     m_arducamView->scale((float)m_arducamView->width()/ m_arducamOp.camWorker->getFrameWidth(), (float)m_arducamView->height() / m_arducamOp.camWorker->getFrameHeight());
@@ -578,8 +578,11 @@ void MainWindow::onCaptureMacroImg() {
 	// LOG_INFO("Captured frame"); for later use
 
     m_arducamOp.camWorker->setCaptureImg(true);
-	QThread::msleep(5000); // waiting to capture the image
+	QThread::msleep(100); // waiting to capture the image
 	m_currentMacroImg = m_arducamOp.camWorker->getCaturedFrame().clone();
+
+    // crop the black portions out
+    //m_currentMacroImg = cropInputImage(m_arducamOp.camWorker->getCaturedFrame().clone());
 
 
     // === Save to macro_img folder ===
