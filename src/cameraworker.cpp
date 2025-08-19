@@ -81,7 +81,7 @@ void CameraWorker::process() {
         else {
             if (m_cameraIndex == IMG) {
                 // TODO: make frame member of this class
-                std::string imgPath = "test_img2.jpg";
+                std::string imgPath = "test_img.png";
                 if (!std::filesystem::exists(imgPath)) {
                     LOG_CRITICAL("Test Image file does not exist: " << imgPath);
                     return;
