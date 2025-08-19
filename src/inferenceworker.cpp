@@ -30,7 +30,7 @@ void InferenceWorker::initializeONNXRuntime() {
         // sessionOptions.AppendExecutionProvider_CUDA(cudaOptions);
         
         // Create session
-        m_session = std::make_unique<Ort::Session>(*m_env, L"deps/models/yolov11n_trainedv1_batched.onnx", sessionOptions);
+        m_session = std::make_unique<Ort::Session>(*m_env, L"deps/models/yolo12n_DynamicAxis.onnx", sessionOptions);
         
         // Get input/output info
         auto inputNamePtr = m_session->GetInputNameAllocated(0, m_allocator);
@@ -59,25 +59,47 @@ void InferenceWorker::initializeONNXRuntime() {
 
 std::vector<cv::Mat> InferenceWorker::splitImageIntoQuadrants(const cv::Mat& image) {
     std::vector<cv::Mat> quadrants;
-    
+
+    if (TILE_FACTOR == 2){
     int halfWidth = image.cols / 2;
     int halfHeight = image.rows / 2;
-    
+
     // Top-left quadrant
     cv::Rect topLeft(0, 0, halfWidth, halfHeight);
     quadrants.push_back(image(topLeft));
-    
+
     // Top-right quadrant
     cv::Rect topRight(halfWidth, 0, halfWidth, halfHeight);
     quadrants.push_back(image(topRight));
-    
+
     // Bottom-left quadrant
     cv::Rect bottomLeft(0, halfHeight, halfWidth, halfHeight);
     quadrants.push_back(image(bottomLeft));
-    
+
     // Bottom-right quadrant
     cv::Rect bottomRight(halfWidth, halfHeight, halfWidth, halfHeight);
     quadrants.push_back(image(bottomRight));
+
+	return quadrants;
+}
+
+    
+	// ensure that the image is divisible by TILE_FACTOR
+	int tileWidth = image.cols / TILE_FACTOR;
+	int tileHeight = image.rows / TILE_FACTOR;
+
+    for (int i = 0; i < TILE_FACTOR; ++i) {
+        for (int j = 0; j < TILE_FACTOR; ++j) {
+            int x = j * tileWidth;
+            int y = i * tileHeight;
+            cv::Rect tileRect(x, y, tileWidth, tileHeight);
+            if (x + tileWidth <= image.cols && y + tileHeight <= image.rows) {
+                quadrants.push_back(image(tileRect));
+				cv::String tileName = "tile_" + std::to_string(i) + "_" + std::to_string(j) + ".jpg";
+                cv::imwrite(tileName, image(tileRect));
+            }
+        }
+	}
     
     return quadrants;
 }
@@ -158,31 +180,56 @@ cv::Rect InferenceWorker::createBoxForQuadrant(float cx, float cy, float w, floa
     y1 = std::max(0.0f, std::min(y1, static_cast<float>(quadHeight)));
     x2 = std::max(0.0f, std::min(x2, static_cast<float>(quadWidth)));
     y2 = std::max(0.0f, std::min(y2, static_cast<float>(quadHeight)));
+
+    if (TILE_FACTOR == 2) {
+        // Adjust coordinates to original image based on quadrant
+        int halfWidth = m_inputFrame.cols / 2;
+        int halfHeight = m_inputFrame.rows / 2;
+        switch (quadrant) {
+            case 1: // Top-left
+                // No adjustment needed
+                break;
+            case 2: // Top-right
+                x1 += halfWidth;
+                x2 += halfWidth;
+                break;
+            case 3: // Bottom-left
+                y1 += halfHeight;
+                y2 += halfHeight;
+                break;
+            case 4: // Bottom-right
+                x1 += halfWidth;
+                x2 += halfWidth;
+                y1 += halfHeight;
+                y2 += halfHeight;
+                break;
+        }
+        return cv::Rect(cv::Point(x1, y1), cv::Point(x2, y2));
+	}
     
-    // Adjust coordinates to original image based on quadrant
-    int halfWidth = m_inputFrame.cols / 2;
-    int halfHeight = m_inputFrame.rows / 2;
-    
-    switch (quadrant) {
-        case 0: // Top-left
-            // No adjustment needed
-            break;
-        case 1: // Top-right
-            x1 += halfWidth;
-            x2 += halfWidth;
-            break;
-        case 2: // Bottom-left
-            y1 += halfHeight;
-            y2 += halfHeight;
-            break;
-        case 3: // Bottom-right
-            x1 += halfWidth;
-            x2 += halfWidth;
-            y1 += halfHeight;
-            y2 += halfHeight;
-            break;
+    if (quadrant > 0 && quadrant <= 4) {
+		x1 += (quadrant - 1) * quadWidth;
+		x2 += (quadrant - 1) * quadWidth;
     }
-    
+    else if (quadrant > 4 && quadrant <= 8) {
+		x1 += (quadrant - 4 - 1) * quadWidth;
+		x2 += (quadrant - 4 - 1) * quadWidth;
+		y1 += quadHeight;
+		y2 += quadHeight;
+    }
+    else if (quadrant > 8 && quadrant <= 12) {
+		x1 += (quadrant - 8 - 1) * quadWidth;
+		x2 += (quadrant - 8 - 1) * quadWidth;
+		y1 += 2 * quadHeight;
+		y2 += 2 * quadHeight;
+    }
+    else if (quadrant > 12 && quadrant <= 16) {
+		x1 += (quadrant - 12 - 1) * quadWidth;
+		x2 += (quadrant - 12 - 1) * quadWidth;
+		y1 += 3 * quadHeight;
+		y2 += 3 * quadHeight;
+    }
+
     return cv::Rect(cv::Point(x1, y1), cv::Point(x2, y2));
 }
 
@@ -197,7 +244,7 @@ std::vector<cv::Rect> InferenceWorker::drawBoxes(std::vector<cv::Rect>& boxes, s
         int class_id = classIds[idx];
         
         // Draw the bounding box
-        cv::rectangle(m_inputFrame, box, cv::Scalar(0, 0, 0), 10);
+        cv::rectangle(m_inputFrame, box, cv::Scalar(0, 0, 0), 2);
         
         // Draw the class label
         std::string label = m_classNames[class_id] + " " + std::to_string(confidences[idx]).substr(0, 4);
@@ -214,7 +261,7 @@ std::vector<cv::Rect> InferenceWorker::drawBoxes(std::vector<cv::Rect>& boxes, s
         
         // Draw text
         cv::putText(m_inputFrame, label, cv::Point(box.x, box.y - baseline), 
-                   cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 5);
+                   cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 2);
 
 		centroids.push_back(box);
     }
@@ -286,7 +333,7 @@ std::vector<cv::Rect> InferenceWorker::runBatchedModel(cv::Mat& input) {
         END_TIMER(preprocess);
         
         // Create input tensor with batch size 4
-        std::vector<int64_t> inputShape = {4, 3, m_inputHeight, m_inputWidth};
+        std::vector<int64_t> inputShape = {TILE_FACTOR * TILE_FACTOR, 3, m_inputHeight, m_inputWidth};
         Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
             m_memoryInfo, inputData.data(), inputData.size(), inputShape.data(), inputShape.size());
         
@@ -437,12 +484,25 @@ std::vector<cv::Rect> InferenceWorker::processBatchedOutput(Ort::Value& output, 
     std::vector<cv::Rect> allBoxes;
     std::vector<int> allClassIds;
     std::vector<cv::Point> allCentroids;
+
+    float scaleX, scaleY;
+	int tileWidth = 0, tileHeight = 0;
     
     // Calculate scale factors for each quadrant
-    int halfWidth = originalImage.cols / 2;
-    int halfHeight = originalImage.rows / 2;
-    float scaleX = static_cast<float>(halfWidth) / m_inputWidth;
-    float scaleY = static_cast<float>(halfHeight) / m_inputHeight;
+    if (TILE_FACTOR == 2) {
+        // For 2x2 tiling, calculate half dimensions
+        tileWidth = originalImage.cols / 2;
+        tileHeight = originalImage.rows / 2;
+        scaleX = static_cast<float>(tileWidth) / m_inputWidth;
+        scaleY = static_cast<float>(tileHeight) / m_inputHeight;
+	}
+    else if (TILE_FACTOR == 4) {
+        // Calculate tile dimensions
+        tileWidth = originalImage.cols / TILE_FACTOR;
+        tileHeight = originalImage.rows / TILE_FACTOR;
+        scaleX = static_cast<float>(tileWidth) / m_inputWidth;
+        scaleY = static_cast<float>(tileHeight) / m_inputHeight;
+    }
     
     for (int b = 0; b < batchSize; ++b) {
         // Calculate offset for this batch
@@ -472,7 +532,8 @@ std::vector<cv::Rect> InferenceWorker::processBatchedOutput(Ort::Value& output, 
                 allConfidences.push_back(maxClassScore);
                 allClassIds.push_back(maxClassId);
                 
-                cv::Rect box = createBoxForQuadrant(cx, cy, w, h, scaleX, scaleY, b, halfWidth, halfHeight);
+                //cv::Rect box = createBoxForQuadrant(cx, cy, w, h, scaleX, scaleY, b, halfWidth, halfHeight);
+                cv::Rect box = createBoxForQuadrant(cx, cy, w, h, scaleX, scaleY, b + 1, tileWidth, tileHeight);
                 allBoxes.push_back(box);
 				allCentroids.push_back(cv::Point(cx * scaleX, cy * scaleY));
             }
