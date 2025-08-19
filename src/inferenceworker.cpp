@@ -1,4 +1,5 @@
 #include "inferenceworker.h"
+#include "inferenceworker.h"
 #include "utils.h"
 
 InferenceWorker::InferenceWorker(int frameWidth, int frameHeight, cv::Mat& img) {
