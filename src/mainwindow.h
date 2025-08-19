@@ -143,6 +143,7 @@ private:
     QGraphicsScene* m_microCam1Scene = nullptr;
     QGraphicsPixmapItem* m_microCam1PixmapItem = nullptr;
 	QImage m_latestMicroCam1Image;
+    cv::Mat m_currentMicroImg1;
     QLabel* m_microCam1FPS = nullptr;
     cameraOp m_microCam1Op;
 
@@ -150,6 +151,7 @@ private:
     QGraphicsScene* m_microCam2Scene = nullptr;
     QGraphicsPixmapItem* m_microCam2PixmapItem = nullptr;
     QImage m_latestMicroCam2Image;
+    cv::Mat m_currentMicroImg2;
     QLabel* m_microCam2FPS = nullptr;
     cameraOp m_microCam2Op;
 
