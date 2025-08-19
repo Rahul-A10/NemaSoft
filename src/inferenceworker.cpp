@@ -30,7 +30,7 @@ void InferenceWorker::initializeONNXRuntime() {
         // sessionOptions.AppendExecutionProvider_CUDA(cudaOptions);
         
         // Create session
-        m_session = std::make_unique<Ort::Session>(*m_env, L"deps/models/yolov11n_trainedv1_batched.onnx", sessionOptions);
+        m_session = std::make_unique<Ort::Session>(*m_env, L"deps/models/yolo12n_DynamicAxis.onnx", sessionOptions);
         
         // Get input/output info
         auto inputNamePtr = m_session->GetInputNameAllocated(0, m_allocator);
