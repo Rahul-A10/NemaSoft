@@ -497,11 +497,12 @@ void MainWindow::onStartArducam() {
 
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
-	m_arducamOp.camWorker = new CameraWorker(camIndex, 0);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+
+	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
+	m_arducamView->resetTransform();
     m_arducamView->scale((float)m_arducamView->width()/ m_arducamOp.camWorker->getFrameWidth(), (float)m_arducamView->height() / m_arducamOp.camWorker->getFrameHeight());
-
     connect(m_arducamOp.thrd, &QThread::started, m_arducamOp.camWorker, &CameraWorker::process); 
     connect(m_arducamOp.camWorker, &CameraWorker::frameReady, this, &MainWindow::updateFrame, Qt::QueuedConnection); 
     connect(m_arducamOp.thrd, &QThread::finished, m_arducamOp.camWorker, &QObject::deleteLater); 
@@ -533,7 +534,7 @@ void MainWindow::onStartDuocam() {
     }
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(1, 1);
+    m_microCam1Op.camWorker = new CameraWorker(1, 1, 1280, 720, 30);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(), (float)m_microCam1View->height() / m_microCam1Op.camWorker->getFrameHeight());
@@ -547,7 +548,7 @@ void MainWindow::onStartDuocam() {
 
 
     m_microCam2Op.thrd = new QThread(this);
-    m_microCam2Op.camWorker = new CameraWorker(3, 2);
+    m_microCam2Op.camWorker = new CameraWorker(3, 2, 1280, 720, 30);
     m_microCam2Op.camWorker->moveToThread(m_microCam2Op.thrd);
 
 	m_microCam2View->scale((float)m_microCam2View->width() / m_microCam2Op.camWorker->getFrameWidth(), (float)m_microCam2View->height() / m_microCam2Op.camWorker->getFrameHeight());
@@ -625,7 +626,7 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 	LOG_INFO("Showing inference result");
 
 	cv::Mat resized;
-    cv::resize(frame, resized, cv::Size(1280, 720));
+    cv::resize(frame, resized, cv::Size(3840, 2160));
     QImage qImage(resized.data, resized.cols, resized.rows, resized.step, QImage::Format_RGB888);
     updateFrame(qImage.copy(), ARDUCAM);
 	// copy the boxCentroids to use them later to change the color of detected boxes once processed
@@ -634,6 +635,9 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 
 	// Clean up inference worker and thread
 	m_macroImgInference.free();
+    m_arducamOp.toggleCamera();
+    m_arducamOp.cameraBtn->setText("Restart Arducam");
+
 }
 
 
