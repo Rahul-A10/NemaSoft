@@ -4,18 +4,25 @@
 #include <filesystem>
 #include "utils.h"
 
-CameraWorker::CameraWorker(int camIndex, int camType, QObject* parent)
-    : QObject(parent) {
+CameraWorker::CameraWorker(int camIndex, int camType,
+    int frameWidth, int frameHeight, int fps,
+    QObject* parent)
+    : QObject(parent)
+{
     m_cameraIndex = camIndex;
     m_cameraType = camType;
 
-    LOG_INFO("CameraWorker initialized with camera index: " << m_cameraIndex << " and type: " << m_cameraType);
+    LOG_INFO("CameraWorker initialized with camera index: " << m_cameraIndex
+        << " and type: " << m_cameraType);
 
     if (camIndex != IMG) {
         m_cap.open(m_cameraIndex);
-        m_cap.set(cv::CAP_PROP_FRAME_WIDTH, 3840);
-        m_cap.set(cv::CAP_PROP_FRAME_HEIGHT, 2160);
-        m_cap.set(cv::CAP_PROP_FPS, 20);
+
+        // Apply user-specified settings
+        m_cap.set(cv::CAP_PROP_FRAME_WIDTH, frameWidth);
+        m_cap.set(cv::CAP_PROP_FRAME_HEIGHT, frameHeight);
+        m_cap.set(cv::CAP_PROP_FPS, fps);
+
         if (!m_cap.isOpened()) {
             LOG_CRITICAL("Failed to open camera with index: " << m_cameraIndex);
             return;
@@ -24,11 +31,13 @@ CameraWorker::CameraWorker(int camIndex, int camType, QObject* parent)
         m_frameWidth = m_cap.get(cv::CAP_PROP_FRAME_WIDTH);
         m_frameHeight = m_cap.get(cv::CAP_PROP_FRAME_HEIGHT);
 
-		    LOG_INFO("Camera opened with resolution: " << m_frameWidth << "x" << m_frameHeight);
+        LOG_INFO("Camera opened with resolution: "
+            << m_frameWidth << "x" << m_frameHeight
+            << " @ " << fps << " FPS");
     }
     else {
-        m_frameWidth = 1280;
-        m_frameHeight = 720;
+        m_frameWidth = frameWidth;
+        m_frameHeight = frameHeight;
     }
 
     m_running = true;
@@ -58,7 +67,7 @@ void CameraWorker::process() {
     while (true) {
         {
             QMutexLocker locker(&m_mutex);
-            // TODO: this exits the thrd if stop() is called. we might want to modify this to not exit the loop but also don't process further?
+            // TODO: this exits the thrd if stop() is called. might want to modify this to not exit the loop but also don't process further?
             if (!m_running) break;
         }
 
@@ -99,8 +108,8 @@ void CameraWorker::process() {
             }
 
             // for large images, resizing helps with UI FPS
-            if (frame.cols > 1280 || frame.rows > 720)
-                cv::resize(frame, frame, cv::Size(3840, 2160));
+            /*if (frame.cols > 1280 || frame.rows > 720)
+                cv::resize(frame, frame, cv::Size(1280, 720));*/
 
             QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_RGB888);
             emit frameReady(qImage.copy(), m_cameraType);

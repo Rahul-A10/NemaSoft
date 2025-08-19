@@ -12,7 +12,7 @@ class CameraWorker : public QObject {
     Q_OBJECT
 
 public:
-    explicit CameraWorker(int camIndex = IMG, int camType = NONE, QObject* parent = nullptr);
+    explicit CameraWorker(int camIndex = IMG, int camType = NONE, int frameWidth = 1080, int frameHeight= 720, int fps = 30, QObject* parent = nullptr);
     ~CameraWorker();
     void stop();
     void start();
