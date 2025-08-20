@@ -302,9 +302,9 @@ QGroupBox* MainWindow::setupPositionUI() {
     m_zLabel = new QLabel(QString("Z: %1").arg(globle_vars.current_z));
 
     QLabel* newPosLabel = new QLabel("New Position 1");
-    m_x1 = new QLineEdit("4");
-    m_y1 = new QLineEdit("5");
-    m_z1 = new QLineEdit("6");
+    m_x1 = new QLineEdit("59079");
+    m_y1 = new QLineEdit("159148");
+    m_z1 = new QLineEdit("0");
     m_stepEdit = new QLineEdit("100");
 
     QVBoxLayout* positionLayout = new QVBoxLayout();
@@ -498,7 +498,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(IMG, 0);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -534,7 +534,7 @@ void MainWindow::onStartDuocam() {
     }
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(1, 1, 1280, 720, 30);
+    m_microCam1Op.camWorker = new CameraWorker(1, 1, 1280, 720, 20);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(), (float)m_microCam1View->height() / m_microCam1Op.camWorker->getFrameHeight());
@@ -548,7 +548,7 @@ void MainWindow::onStartDuocam() {
 
 
     m_microCam2Op.thrd = new QThread(this);
-    m_microCam2Op.camWorker = new CameraWorker(3, 2, 1280, 720, 30);
+    m_microCam2Op.camWorker = new CameraWorker(3, 2, 1280, 720, 20);
     m_microCam2Op.camWorker->moveToThread(m_microCam2Op.thrd);
 
 	m_microCam2View->scale((float)m_microCam2View->width() / m_microCam2Op.camWorker->getFrameWidth(), (float)m_microCam2View->height() / m_microCam2Op.camWorker->getFrameHeight());
@@ -645,15 +645,15 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(4020.5 , 3671.5),   // Replace with actual image coordinates
-        cv::Point2f(3894.5, 3624.5),   // from your calibration process
-        cv::Point2f(4051, 4003.5)
+        cv::Point2f(1651 , 1195),   // Replace with actual image coordinates // i
+        cv::Point2f(1878, 1094),   // from your calibration process// center
+        cv::Point2f(2159, 1241)//0.1
     };
 
     std::vector<cv::Point2f> realPoints = {
-        cv::Point2f(79045, -1215), // Replace with actual real world coordinates
-        cv::Point2f(78045, -215), // corresponding to the image points above
-        cv::Point2f(77863.2, -220.9)
+        cv::Point2f(56730, 27795), // Replace with actual real world coordinates
+        cv::Point2f(62000, 25602), // corresponding to the image points above
+        cv::Point2f(68534, 28840)
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
@@ -849,7 +849,7 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
         // Calculate relative movement from current position
         double deltaX = targetPoint.x - globle_vars.current_x;
         double deltaY = targetPoint.y - globle_vars.current_y;
-        double deltaZ = 21000.0 - globle_vars.current_z;  // Use 2000 as constant Z value
+        double deltaZ = 29657 - globle_vars.current_z;  // Use 2000 as constant Z value
 
         LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
             ": (" << targetPoint.x << ", " << targetPoint.y << ", 21000)");

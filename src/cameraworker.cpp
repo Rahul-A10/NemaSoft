@@ -114,7 +114,7 @@ void CameraWorker::process() {
             QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_RGB888);
             emit frameReady(qImage.copy(), m_cameraType);
 
-            QThread::msleep(30);
+            QThread::msleep(50);
         }
     }
 }
