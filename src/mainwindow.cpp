@@ -371,7 +371,8 @@ cv::Mat MainWindow::calculateTransformationMatrix(const std::vector<cv::Point2f>
     // Calculate affine transformation matrix using 3 point pairs
     cv::Mat transformMatrix = cv::getAffineTransform(imagePoints, realPoints);
 
-    LOG_INFO("Transformation matrix calculated successfully");
+    LOG_INFO("Transformation matrix calculated successfully", transformMatrix);
+
     return transformMatrix;
 }
 
@@ -657,6 +658,7 @@ void MainWindow::setupTransformationMatrix() {
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
+    LOG_INFO("Affine Matrix is ", m_transformMatrix);
 
     if (!m_transformMatrix.empty()) {
         LOG_INFO("Transformation matrix initialized successfully");
@@ -780,6 +782,7 @@ void MainWindow::onPredictMicroImg() {
 
     LOG_INFO("Starting traversal of detected macro image path...");
     traverseRealCoordinatePath(m_transformMatrix);
+    ;
 }
 
 
@@ -817,6 +820,9 @@ std::vector<cv::Point2f> MainWindow::convertImageToRealCoordinates(const std::ve
 
 // Convenience method to convert m_macroImgPath to real coordinates
 std::vector<cv::Point2f> MainWindow::convertMacroImagePathToReal(const cv::Mat& transformMatrix) {
+    std::stringstream ss;
+    ss << "Affine Matrix is: " << transformMatrix;
+    LOG_INFO(ss.str());
     return convertImageToRealCoordinates(m_macroImgPath, transformMatrix);
 }
 
@@ -849,17 +855,20 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
         // Calculate relative movement from current position
         double deltaX = targetPoint.x - globle_vars.current_x;
         double deltaY = targetPoint.y - globle_vars.current_y;
-        double deltaZ = 29657 - globle_vars.current_z;  // Use 2000 as constant Z value
+        double deltaZ = 29657 - globle_vars.current_z;  // Use 29657 as constant Z value
 
         LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
-            ": (" << targetPoint.x << ", " << targetPoint.y << ", 21000)");
+            ": (" << targetPoint.x << ", " << targetPoint.y << ", 29657)");
         LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
 
         // Execute the move command
-        xyz_object.move(deltaX, deltaY, deltaZ);
+        xyz_object.move(deltaX,0,0);
+        xyz_object.move(0,deltaY,0);
+        xyz_object.move(0,0,deltaZ);
 
         // Optional: Add a small delay between movements if needed
-        QThread::msleep(500);  // 500ms delay between points
+        updatePositionDisplay();
+        QThread::msleep(1000);  // 500ms delay between points
 
         LOG_INFO("Reached point " << (i + 1) << " at position (" <<
             globle_vars.current_x << ", " << globle_vars.current_y << ", " << globle_vars.current_z << ")");
@@ -877,7 +886,9 @@ void MainWindow::onGoToPosition1() {
     double x = m_x1->text().toDouble();  
     double y = m_y1->text().toDouble();  
     double z = m_z1->text().toDouble();  
-    xyz_object.move(x-globle_vars.current_x, y- globle_vars.current_y, z- globle_vars.current_z);
+    xyz_object.move(x - globle_vars.current_x, 0, 0);
+    xyz_object.move(0, y - globle_vars.current_y, 0);
+    xyz_object.move(0, 0, z - globle_vars.current_z);
 }
 
 // movement slots
