@@ -235,6 +235,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     QPushButton* slant2 = new QPushButton("↗");
     QPushButton* slant3 = new QPushButton("↘");
     QPushButton* slant4 = new QPushButton("↙");
+    QPushButton* AbortPath = new QPushButton("⏻");
 
     leftFast->setFixedSize(30, 30);
     leftSlow->setFixedSize(30, 30);
@@ -252,6 +253,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     slant2->setFixedSize(30, 30);
     slant3->setFixedSize(30, 30);
     slant4->setFixedSize(30, 30);
+	AbortPath->setFixedSize(30, 30);
 
     movementLayout->addWidget(slant1, 1, 1);
     movementLayout->addWidget(upFast, 0, 2);
@@ -269,6 +271,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     movementLayout->addWidget(zUp, 1, 5);
     movementLayout->addWidget(zDown, 3, 5);
     movementLayout->addWidget(zDownFast, 4, 5);
+	movementLayout->addWidget(AbortPath, 5, 0); 
 
     // Connect movement buttons to slots
     connect(leftFast, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
@@ -287,6 +290,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(slant2, &QPushButton::clicked, this, &MainWindow::onSlant2Clicked);
     connect(slant3, &QPushButton::clicked, this, &MainWindow::onSlant3Clicked);
     connect(slant4, &QPushButton::clicked, this, &MainWindow::onSlant4Clicked);
+	connect(AbortPath, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
 
     QGroupBox* movementBox = new QGroupBox();
     movementBox->setLayout(movementLayout);
@@ -499,7 +503,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(IMG, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -849,6 +853,11 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
     LOG_INFO("Starting traversal of " << realCoordinates.size() << " detected points");
 
     // Traverse each real coordinate point
+	
+    if (abort) {
+                LOG_INFO("Traversal aborted by user.");
+				return; 
+    }
     for (size_t i = 0; i < realCoordinates.size(); ++i) {
         const cv::Point2f& targetPoint = realCoordinates[i];
 
@@ -989,5 +998,9 @@ void MainWindow::onSlant4Clicked() {
     double stepValue = m_stepEdit->text().toDouble();
     xyz_object.move(-10.0* stepValue, 0.0, 0.0);
     xyz_object.move(0.0, 10.0* stepValue, 0.0);
+}
+void MainWindow::onAbortPathClicked() {
+    LOG_INFO("Aborted by the User");  
+    this->abort = true;  
 }
 

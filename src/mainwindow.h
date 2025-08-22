@@ -98,6 +98,7 @@ public:
     void onSlant4Clicked();
     void updatePositionDisplay();
     void setupTransformationMatrix();
+    void onAbortPathClicked();
 
 
 private:
@@ -126,6 +127,7 @@ private:
     QLineEdit* m_y1;
     QLineEdit* m_z1;
     QLineEdit* m_stepEdit;
+    bool abort = false;
 
     QGroupBox* m_controlGroup = nullptr;
 
