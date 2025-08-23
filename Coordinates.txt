@@ -1,0 +1,4 @@
+Macro imaging co-ordinates: X = 59079 y=159148 z=0
+Image co-ordinates=  i= 1651, 1195
+0.1 = 2159, 1241
+center = 1878, 1094
