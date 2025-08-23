@@ -17,7 +17,8 @@
 #include <QThread>
 #include <QDebug>
 #include <QDialog>
-
+#include <QDir>
+#include <QDateTime>
 #include "XYZStage.h"
 #include <opencv2/opencv.hpp>
 // or more specific includes:
@@ -297,9 +298,9 @@ QGroupBox* MainWindow::setupPositionUI() {
     m_zLabel = new QLabel(QString("Z: %1").arg(globle_vars.current_z));
 
     QLabel* newPosLabel = new QLabel("New Position 1");
-    m_x1 = new QLineEdit("4");
-    m_y1 = new QLineEdit("5");
-    m_z1 = new QLineEdit("6");
+    m_x1 = new QLineEdit("59079");
+    m_y1 = new QLineEdit("159148");
+    m_z1 = new QLineEdit("0");
     m_stepEdit = new QLineEdit("100");
 
     QVBoxLayout* positionLayout = new QVBoxLayout();
@@ -366,7 +367,8 @@ cv::Mat MainWindow::calculateTransformationMatrix(const std::vector<cv::Point2f>
     // Calculate affine transformation matrix using 3 point pairs
     cv::Mat transformMatrix = cv::getAffineTransform(imagePoints, realPoints);
 
-    LOG_INFO("Transformation matrix calculated successfully");
+    LOG_INFO("Transformation matrix calculated successfully", transformMatrix);
+
     return transformMatrix;
 }
 
@@ -492,11 +494,12 @@ void MainWindow::onStartArducam() {
 
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
-    m_arducamOp.camWorker = new CameraWorker(camIndex, 0);
+
+	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
+	m_arducamView->resetTransform();
     m_arducamView->scale((float)m_arducamView->width()/ m_arducamOp.camWorker->getFrameWidth(), (float)m_arducamView->height() / m_arducamOp.camWorker->getFrameHeight());
-
     connect(m_arducamOp.thrd, &QThread::started, m_arducamOp.camWorker, &CameraWorker::process); 
     connect(m_arducamOp.camWorker, &CameraWorker::frameReady, this, &MainWindow::updateFrame, Qt::QueuedConnection); 
     connect(m_arducamOp.thrd, &QThread::finished, m_arducamOp.camWorker, &QObject::deleteLater); 
@@ -528,7 +531,7 @@ void MainWindow::onStartDuocam() {
     }
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(0, 1);
+    m_microCam1Op.camWorker = new CameraWorker(1, 1, 1280, 720, 20);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(), (float)m_microCam1View->height() / m_microCam1Op.camWorker->getFrameHeight());
@@ -542,7 +545,7 @@ void MainWindow::onStartDuocam() {
 
 
     m_microCam2Op.thrd = new QThread(this);
-    m_microCam2Op.camWorker = new CameraWorker(0, 2);
+    m_microCam2Op.camWorker = new CameraWorker(3, 2, 1280, 720, 20);
     m_microCam2Op.camWorker->moveToThread(m_microCam2Op.thrd);
 
 	m_microCam2View->scale((float)m_microCam2View->width() / m_microCam2Op.camWorker->getFrameWidth(), (float)m_microCam2View->height() / m_microCam2Op.camWorker->getFrameHeight());
@@ -573,8 +576,33 @@ void MainWindow::onCaptureMacroImg() {
 	// LOG_INFO("Captured frame"); for later use
 
     m_arducamOp.camWorker->setCaptureImg(true);
-	QThread::msleep(30); // waiting to capture the image
+	QThread::msleep(100); // waiting to capture the image
 	m_currentMacroImg = m_arducamOp.camWorker->getCaturedFrame().clone();
+
+    // crop the black portions out
+    //m_currentMacroImg = cropInputImage(m_arducamOp.camWorker->getCaturedFrame().clone());
+
+
+    // === Save to macro_img folder ===
+    // 1. Create folder path inside the project directory
+    QString folderPath = QDir(QCoreApplication::applicationDirPath()).filePath("macro_img");
+    QDir dir;
+    if (!dir.exists(folderPath)) {
+        dir.mkpath(folderPath);
+    }
+
+    // 2. Create file name based on date and time
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
+    QString filePath = folderPath + "/" + timestamp + ".png";
+
+    // 3. Save using OpenCV imwrite
+    if (!m_currentMacroImg.empty()) {
+        cv::imwrite(filePath.toStdString(), m_currentMacroImg);
+        LOG_INFO("Macro image saved to: " + filePath.toStdString());
+    }
+    else {
+        LOG_WARNING("Captured macro image is empty. Not saving.");
+    }
     
 }
 
@@ -595,7 +623,7 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 	LOG_INFO("Showing inference result");
 
 	cv::Mat resized;
-    cv::resize(frame, resized, cv::Size(1280, 720));
+    cv::resize(frame, resized, cv::Size(3840, 2160));
     QImage qImage(resized.data, resized.cols, resized.rows, resized.step, QImage::Format_RGB888);
     updateFrame(qImage.copy(), ARDUCAM);
 	// copy the boxCentroids to use them later to change the color of detected boxes once processed
@@ -604,6 +632,9 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 
 	// Clean up inference worker and thread
 	m_macroImgInference.free();
+    m_arducamOp.toggleCamera();
+    m_arducamOp.cameraBtn->setText("Restart Arducam");
+
 }
 
 
@@ -611,18 +642,19 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(4020.5 , 3671.5),   // Replace with actual image coordinates
-        cv::Point2f(3894.5, 3624.5),   // from your calibration process
-        cv::Point2f(4051, 4003.5)
+        cv::Point2f(1651 , 1195),   // Replace with actual image coordinates // i
+        cv::Point2f(1878, 1094),   // from your calibration process// center
+        cv::Point2f(2159, 1241)//0.1
     };
 
     std::vector<cv::Point2f> realPoints = {
-        cv::Point2f(79045, -1215), // Replace with actual real world coordinates
-        cv::Point2f(78045, -215), // corresponding to the image points above
-        cv::Point2f(77863.2, -220.9)
+        cv::Point2f(56730, 27795), // Replace with actual real world coordinates
+        cv::Point2f(62000, 25602), // corresponding to the image points above
+        cv::Point2f(68534, 28840)
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
+    LOG_INFO("Affine Matrix is ", m_transformMatrix);
 
     if (!m_transformMatrix.empty()) {
         LOG_INFO("Transformation matrix initialized successfully");
@@ -669,6 +701,84 @@ void MainWindow::onPredictMacroImg() {
         m_macroImgInference.thrd->start();
     }
     //m_arducamOp.camWorker->start(); // show the updated captured frame...
+
+}
+
+
+
+
+//----------------------------------------------------------------------------------------------------------------
+
+void MainWindow::onCaptureMicroImg() {
+    // ====== MicroCam1 ======
+    if (!m_microCam1Op.thrd) {
+        LOG_WARNING("First microCam is not running. Cannot capture image.");
+        return;
+    }
+    m_microCam1Op.camWorker->setCaptureImg(true);
+    QThread::msleep(30);
+    m_currentMicroImg1 = m_microCam1Op.camWorker->getCaturedFrame().clone();
+
+    // Save MicroCam1 image
+    if (!m_currentMicroImg1.empty()) {
+        QString folderPath1 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img1");
+        QDir dir1;
+        if (!dir1.exists(folderPath1)) {
+            dir1.mkpath(folderPath1);
+        }
+        QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
+        QString filePath1 = folderPath1 + "/" + timestamp + "_cam1.png";
+        cv::imwrite(filePath1.toStdString(), m_currentMicroImg1);
+        LOG_INFO("MicroCam1 image saved to: " + filePath1.toStdString());
+    }
+    else {
+        LOG_WARNING("MicroCam1 captured image is empty. Not saving.");
+    }
+
+    // ====== MicroCam2 ======
+    if (!m_microCam2Op.thrd) {
+        LOG_WARNING("Second microCam is not running. Cannot capture image.");
+        return;
+    }
+    m_microCam2Op.camWorker->setCaptureImg(true);
+    QThread::msleep(30);
+    m_currentMicroImg2 = m_microCam2Op.camWorker->getCaturedFrame().clone();
+
+    // Save MicroCam2 image
+    if (!m_currentMicroImg2.empty()) {
+        QString folderPath2 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img2");
+        QDir dir2;
+        if (!dir2.exists(folderPath2)) {
+            dir2.mkpath(folderPath2);
+        }
+        QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
+        QString filePath2 = folderPath2 + "/" + timestamp + "_cam2.png";
+        cv::imwrite(filePath2.toStdString(), m_currentMicroImg2);
+        LOG_INFO("MicroCam2 image saved to: " + filePath2.toStdString());
+    }
+    else {
+        LOG_WARNING("MicroCam2 captured image is empty. Not saving.");
+    }
+
+
+
+
+}
+void MainWindow::onPredictMicroImg() {
+    if (m_transformMatrix.empty()) {
+        LOG_WARNING("Transformation matrix not set. Please calculate transformation matrix first.");
+        LOG_INFO("Use calculateTransformationMatrix() with 3 corresponding image and real coordinate points.");
+        return;
+    }
+
+    if (m_macroImgPath.empty()) {
+        LOG_WARNING("No detected objects in macro image path. Please capture and predict macro image first.");
+        return;
+    }
+
+    LOG_INFO("Starting traversal of detected macro image path...");
+    traverseRealCoordinatePath(m_transformMatrix);
+    ;
 }
 
 
@@ -706,6 +816,9 @@ std::vector<cv::Point2f> MainWindow::convertImageToRealCoordinates(const std::ve
 
 // Convenience method to convert m_macroImgPath to real coordinates
 std::vector<cv::Point2f> MainWindow::convertMacroImagePathToReal(const cv::Mat& transformMatrix) {
+    std::stringstream ss;
+    ss << "Affine Matrix is: " << transformMatrix;
+    LOG_INFO(ss.str());
     return convertImageToRealCoordinates(m_macroImgPath, transformMatrix);
 }
 
@@ -738,17 +851,20 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
         // Calculate relative movement from current position
         double deltaX = targetPoint.x - globle_vars.current_x;
         double deltaY = targetPoint.y - globle_vars.current_y;
-        double deltaZ = 21000.0 - globle_vars.current_z;  // Use 2000 as constant Z value
+        double deltaZ = 29657 - globle_vars.current_z;  // Use 29657 as constant Z value
 
         LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
-            ": (" << targetPoint.x << ", " << targetPoint.y << ", 21000)");
+            ": (" << targetPoint.x << ", " << targetPoint.y << ", 29657)");
         LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
 
         // Execute the move command
-        m_xyzStage.move(deltaX, deltaY, deltaZ);
+        xyz_object.move(deltaX,0,0);
+        xyz_object.move(0,deltaY,0);
+        xyz_object.move(0,0,deltaZ);
 
         // Optional: Add a small delay between movements if needed
-        QThread::msleep(500);  // 500ms delay between points
+        updatePositionDisplay();
+        QThread::msleep(1000);  // 500ms delay between points
 
         LOG_INFO("Reached point " << (i + 1) << " at position (" <<
             globle_vars.current_x << ", " << globle_vars.current_y << ", " << globle_vars.current_z << ")");
@@ -759,29 +875,16 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
 
 
 
-void MainWindow::onCaptureMicroImg() {}
-void MainWindow::onPredictMicroImg() {
-    if (m_transformMatrix.empty()) {
-        LOG_WARNING("Transformation matrix not set. Please calculate transformation matrix first.");
-        LOG_INFO("Use calculateTransformationMatrix() with 3 corresponding image and real coordinate points.");
-        return;
-    }
 
-    if (m_macroImgPath.empty()) {
-        LOG_WARNING("No detected objects in macro image path. Please capture and predict macro image first.");
-        return;
-    }
-
-    LOG_INFO("Starting traversal of detected macro image path...");
-    traverseRealCoordinatePath(m_transformMatrix);
-}
 
 void MainWindow::onGoToPosition1() {  
     LOG_INFO("Move to Input Position 1");  
     double x = m_x1->text().toDouble();  
     double y = m_y1->text().toDouble();  
     double z = m_z1->text().toDouble();  
-    m_xyzStage.move(x-globle_vars.current_x, y- globle_vars.current_y, z- globle_vars.current_z);
+    xyz_object.move(x - globle_vars.current_x, 0, 0);
+    xyz_object.move(0, y - globle_vars.current_y, 0);
+    xyz_object.move(0, 0, z - globle_vars.current_z);
 }
 
 // movement slots

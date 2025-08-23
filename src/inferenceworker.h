@@ -7,8 +7,9 @@
 #include <onnxruntime_cxx_api.h>
 
 
-#define CONFIDENCE_THRESHOLD 0.35f
-#define OVERLAP_THRESHOLD 0.45f
+#define CONFIDENCE_THRESHOLD 0.05f
+#define OVERLAP_THRESHOLD 0.05f
+#define TILE_FACTOR 4
 
 class InferenceWorker : public QObject {
     Q_OBJECT

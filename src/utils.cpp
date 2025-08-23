@@ -154,3 +154,43 @@ std::vector<int> checkAvailableCameraConnections() {
 
 	return availableCameras;
 }
+
+
+cv::Mat cropInputImage(const cv::Mat& input) {
+    cv::Mat gray;
+    cv::cvtColor(input, gray, cv::COLOR_BGR2GRAY);
+
+    // Threshold to find non-black regions
+    cv::Mat mask;
+    cv::threshold(gray, mask, 10, 255, cv::THRESH_BINARY);
+
+    // Find contours of non-black area
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    if (contours.empty()) {
+        return input.clone(); // nothing to crop
+    }
+
+    // Get bounding rect of the largest contour
+    int maxIdx = 0;
+    double maxArea = 0.0;
+    for (int i = 0; i < contours.size(); i++) {
+        double a = cv::contourArea(contours[i]);
+        if (a > maxArea) {
+            maxArea = a;
+            maxIdx = i;
+        }
+    }
+
+    cv::Rect bbox = cv::boundingRect(contours[maxIdx]);
+    cv::Mat cropped = input(bbox);
+
+    // Ensure dimensions divisible by 4
+    int newW = cropped.cols - (cropped.cols % 4);
+    int newH = cropped.rows - (cropped.rows % 4);
+    cv::Rect finalRect(0, 0, newW, newH);
+    cropped = cropped(finalRect).clone();
+
+    return cropped;
+}
