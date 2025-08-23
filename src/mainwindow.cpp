@@ -25,10 +25,6 @@
 #include <opencv2/imgproc.hpp>
 
 
-
-extern XYZStage xyz_object;//change location of these variables to the correct header file
-
-
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
 
@@ -749,7 +745,7 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
         LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
 
         // Execute the move command
-        xyz_object.move(deltaX, deltaY, deltaZ);
+        m_xyzStage.move(deltaX, deltaY, deltaZ);
 
         // Optional: Add a small delay between movements if needed
         QThread::msleep(500);  // 500ms delay between points
@@ -785,7 +781,7 @@ void MainWindow::onGoToPosition1() {
     double x = m_x1->text().toDouble();  
     double y = m_y1->text().toDouble();  
     double z = m_z1->text().toDouble();  
-    xyz_object.move(x-globle_vars.current_x, y- globle_vars.current_y, z- globle_vars.current_z);
+    m_xyzStage.move(x-globle_vars.current_x, y- globle_vars.current_y, z- globle_vars.current_z);
 }
 
 // movement slots
@@ -793,98 +789,98 @@ void MainWindow::onGoToPosition1() {
 void MainWindow::onLeftFastClicked() { 
     LOG_INFO("Move Left Fast");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(-10.0* stepValue, 0.0, 0.0);
+    m_xyzStage.move(-10.0* stepValue, 0.0, 0.0);
 }
 
 void MainWindow::onLeftSlowClicked() { 
     LOG_INFO("Move Left Slow");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(-stepValue, 0.0, 0.0);
+    m_xyzStage.move(-stepValue, 0.0, 0.0);
 }
 
 void MainWindow::onRightFastClicked() {
 	LOG_INFO("Move Right Fast");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(10.0* stepValue , 0.0, 0.0);
+    m_xyzStage.move(10.0* stepValue , 0.0, 0.0);
 }
 
 void MainWindow::onRightSlowClicked() {
 	LOG_INFO("Move Right Slow");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(stepValue, 0.0, 0.0);
+    m_xyzStage.move(stepValue, 0.0, 0.0);
 }
 
 void MainWindow::onUpFastClicked() {
 	LOG_INFO("Move Up Fast");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(0.0, -10.0 * stepValue, 0.0);
+    m_xyzStage.move(0.0, -10.0 * stepValue, 0.0);
 }
 
 void MainWindow::onUpSlowClicked() {
 	LOG_INFO("Move Up Slow");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(0.0, -stepValue, 0.0);
+    m_xyzStage.move(0.0, -stepValue, 0.0);
 }
 
 void MainWindow::onDownFastClicked() {
 	LOG_INFO("Move Down Fast");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(0.0, 10.0* stepValue, 0.0);
+    m_xyzStage.move(0.0, 10.0* stepValue, 0.0);
 }
 
 void MainWindow::onDownSlowClicked() {
 	LOG_INFO("Move Down Slow");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(0.0, stepValue, 0.0);
+    m_xyzStage.move(0.0, stepValue, 0.0);
 }
 
 void MainWindow::onZUpClicked() {
 	LOG_INFO("Move Z Up");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(0.0, 0.0, stepValue);
+    m_xyzStage.move(0.0, 0.0, stepValue);
 }
 
 void MainWindow::onZUpFastClicked() {
 	LOG_INFO("Move Z Up Fast");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(0.0, 0.0, 10.0* stepValue);
+    m_xyzStage.move(0.0, 0.0, 10.0* stepValue);
 }
 
 void MainWindow::onZDownClicked() {
 	LOG_INFO("Move Z Down");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(0.0, 0.0, -stepValue);
+    m_xyzStage.move(0.0, 0.0, -stepValue);
 }
 
 void MainWindow::onZDownFastClicked() {
 	LOG_INFO("Move Z Down Fast");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(0.0, 0.0, -10.0* stepValue);
+    m_xyzStage.move(0.0, 0.0, -10.0* stepValue);
 }
 
 void MainWindow::onSlant1Clicked() {
 	LOG_INFO("Move ↖");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(-10.0* stepValue, -10.0* stepValue, 0.0);
+    m_xyzStage.move(-10.0* stepValue, -10.0* stepValue, 0.0);
 }
 
 void MainWindow::onSlant2Clicked() {
 	LOG_INFO("Move ↗");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(10.0* stepValue, 0.0, 0.0);
-    xyz_object.move(0.0, -10.0* stepValue, 0.0);
+    m_xyzStage.move(10.0* stepValue, 0.0, 0.0);
+    m_xyzStage.move(0.0, -10.0* stepValue, 0.0);
 }
 
 void MainWindow::onSlant3Clicked() {
 	LOG_INFO("Move ↘");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(10.0* stepValue, 10.0* stepValue, 0.0);
+    m_xyzStage.move(10.0* stepValue, 10.0* stepValue, 0.0);
 }
 
 void MainWindow::onSlant4Clicked() {
 	LOG_INFO("Move ↙");
     double stepValue = m_stepEdit->text().toDouble();
-    xyz_object.move(-10.0* stepValue, 0.0, 0.0);
-    xyz_object.move(0.0, 10.0* stepValue, 0.0);
+    m_xyzStage.move(-10.0* stepValue, 0.0, 0.0);
+    m_xyzStage.move(0.0, 10.0* stepValue, 0.0);
 }
 

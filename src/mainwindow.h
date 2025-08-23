@@ -15,6 +15,7 @@
 #include <QLineEdit>
 #include <QGraphicsPixmapItem>
 #include "ZoomableGraphicsView.h"
+#include "XYZStage.h"
 
 
 struct cameraOp
@@ -162,6 +163,8 @@ private:
     //int m_arducamIndex = 1;
 	//int m_microCam1Index = 2;
 	//int m_microCam2Index = 3;
+
+	XYZStage m_xyzStage;
 };
 
 #endif // MAINWINDOW_
