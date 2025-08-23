@@ -7,7 +7,12 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
-#include <cstdio> // For sprintf_s
+#include <cstdio>
+
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
 
 // Global variables structure (similar to your globle_vars)
 struct GlobalVars {
@@ -29,6 +34,15 @@ private:
         double z = 0.0;
     };
 
+    struct MoveCommand {
+        double dx;
+        double dy;
+        double dz;
+        double vx;
+        double vy;
+        double vz;
+    };
+
     struct Scale {
         double x = 88/ 1000.0;
         double y = 88/ 1000.0;
@@ -38,6 +52,13 @@ private:
     Position position;
     std::string port;
     Scale scale;
+    std::thread m_workerThread;
+    std::queue<MoveCommand> m_commandQueue;
+    std::mutex m_queueMutex;
+    std::condition_variable m_condition;
+    std::atomic<bool> m_stopWorker;
+
+    void worker();
 
     // Private helper method to get serial handle
     HANDLE getSerial();
@@ -48,23 +69,19 @@ private:
     Position _move(double x, double y, double z, double vx, double vy, double vz, char direction);
 
 public:
-    // Constructor
     XYZStage(const std::string& portName = "COM5");
+    ~XYZStage();
 
     // Public move method
     void move(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);
 
     // Getter for current position
-    Position getPosition() const;
+    XYZStage::Position getPosition() const { return position; }
 
-
-    // where are below methods used?
+	// currently unused
     // Getter for port
-    std::string getPort() const;
+    std::string getPort() const { return port; }
 
     // Setter for port
-    void setPort(const std::string& newPort);
+    void setPort(const std::string& newPort) { port = newPort; }
 };
-
-// Global instance declaration (similar to your xyz_object)
-extern XYZStage xyz_object;
