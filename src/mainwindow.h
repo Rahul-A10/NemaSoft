@@ -100,7 +100,7 @@ public:
     void updatePositionDisplay();
     void setupTransformationMatrix();
     void onAbortPathClicked();
-
+	void onResumePathClicked();
 
 private:
     // Transformation methods
@@ -129,6 +129,7 @@ private:
     QLineEdit* m_z1;
     QLineEdit* m_stepEdit;
     bool abort = false;
+	bool pause = false;
 
     QGroupBox* m_controlGroup = nullptr;
 
