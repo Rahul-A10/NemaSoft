@@ -499,7 +499,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(IMG, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -867,9 +867,9 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
         LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
 
         // Execute the move command
-        xyz_object.move(deltaX,0,0);
-        xyz_object.move(0,deltaY,0);
-        xyz_object.move(0,0,deltaZ);
+        m_xyzStage.move(deltaX,0,0);
+        m_xyzStage.move(0,deltaY,0);
+        m_xyzStage.move(0,0,deltaZ);
 
         // Optional: Add a small delay between movements if needed
         updatePositionDisplay();
@@ -891,9 +891,9 @@ void MainWindow::onGoToPosition1() {
     double x = m_x1->text().toDouble();  
     double y = m_y1->text().toDouble();  
     double z = m_z1->text().toDouble();  
-    xyz_object.move(x - globle_vars.current_x, 0, 0);
-    xyz_object.move(0, y - globle_vars.current_y, 0);
-    xyz_object.move(0, 0, z - globle_vars.current_z);
+    m_xyzStage.move(x - globle_vars.current_x, 0, 0);
+    m_xyzStage.move(0, y - globle_vars.current_y, 0);
+    m_xyzStage.move(0, 0, z - globle_vars.current_z);
 }
 
 // movement slots
