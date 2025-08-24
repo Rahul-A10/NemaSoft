@@ -4,9 +4,6 @@
 // Global variable definition
 GlobalVars globle_vars;
 
-// Global instance definition (similar to your xyz_object)
-XYZStage xyz_object("COM5");
-
 // Private helper method to get serial handle
 // This method opens the serial port and sets the parameters
 HANDLE XYZStage::getSerial() {
@@ -338,28 +335,76 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     return position;
 }
 
-// Constructor
-XYZStage::XYZStage(const std::string& portName) : port(portName) {
+
+XYZStage::XYZStage(const std::string& portName)
+    : port(portName), m_stopWorker(false) {
     LOG_INFO("XYZStage initialized to: x=" << position.x << ", y=" << position.y << ", z=" << position.z);
+    // Start the worker thread upon construction
+    m_workerThread = std::thread(&XYZStage::worker, this);
 }
 
-// Public move method
+
+XYZStage::~XYZStage() {
+    {
+        std::lock_guard<std::mutex> lock(m_queueMutex);
+        m_stopWorker = true;
+    }
+	LOG_INFO("Stopping XYZStage worker thread...");
+    // Notify the condition variable to wake the thread up if it's waiting
+    m_condition.notify_one();
+
+    // Wait for the thread to finish its work and exit
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
+    }
+}
+
+
 void XYZStage::move(double dx, double dy, double dz, double velocity_x, double velocity_y, double velocity_z) {
-    char direction = (dx >= 0 && dy >= 0 && dz >= 0) ? 'P' : 'D';
-    _move(std::abs(dx), std::abs(dy), std::abs(dz), velocity_x, velocity_y, velocity_z, direction);
+    {
+        // Acquire lock to safely add to the queue
+        std::lock_guard<std::mutex> lock(m_queueMutex);
+        m_commandQueue.push({ dx, dy, dz, velocity_x, velocity_y, velocity_z });
+		LOG_INFO("Queued move command: dx=" << dx << ", dy=" << dy << ", dz=" << dz << "and notifying the worker");
+    }
+    // Notify the worker thread that a new command is available
+    m_condition.notify_one();
 }
 
-// Getter for current position
-XYZStage::Position XYZStage::getPosition() const {
-    return position;
-}
+// This function runs in a separate thread, processing commands from the queue.
+void XYZStage::worker() {
+    while (true) {
+        MoveCommand currentCommand;
 
-// Getter for port
-std::string XYZStage::getPort() const {
-    return port;
-}
+        {
+            // Acquire a unique lock to wait on the condition variable
+            std::unique_lock<std::mutex> lock(m_queueMutex);
 
-// Setter for port
-void XYZStage::setPort(const std::string& newPort) {
-    port = newPort;
+            // Wait until the queue is not empty OR the stop signal is received
+            m_condition.wait(lock, [this] {
+                return !m_commandQueue.empty() || m_stopWorker;
+                });
+
+            // If woken up to stop and the queue is empty, exit the thread
+            if (m_stopWorker && m_commandQueue.empty()) {
+                return;
+            }
+
+            // Get the next command from the queue
+            currentCommand = m_commandQueue.front();
+            m_commandQueue.pop();
+			LOG_INFO("Dequeued move command: dx=" << currentCommand.dx << ", dy=" << currentCommand.dy << ", dz=" << currentCommand.dz);
+        } // The lock is automatically released here
+
+        // --- Execute the move ---
+        // The logic to determine direction is moved from 'move' to here
+        char direction = (currentCommand.dx >= 0 && currentCommand.dy >= 0 && currentCommand.dz >= 0) ? 'P' : 'D';
+        _move(std::abs(currentCommand.dx),
+            std::abs(currentCommand.dy),
+            std::abs(currentCommand.dz),
+            currentCommand.vx,
+            currentCommand.vy,
+            currentCommand.vz,
+            direction);
+    }
 }
