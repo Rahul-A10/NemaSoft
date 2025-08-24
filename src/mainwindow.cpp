@@ -232,6 +232,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     QPushButton* slant3 = new QPushButton("↘");
     QPushButton* slant4 = new QPushButton("↙");
     QPushButton* AbortPath = new QPushButton("⏻");
+    QPushButton* ResumePath = new QPushButton("▶");
 
     leftFast->setFixedSize(30, 30);
     leftSlow->setFixedSize(30, 30);
@@ -250,6 +251,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     slant3->setFixedSize(30, 30);
     slant4->setFixedSize(30, 30);
 	AbortPath->setFixedSize(30, 30);
+	ResumePath->setFixedSize(30, 30);
 
     movementLayout->addWidget(slant1, 1, 1);
     movementLayout->addWidget(upFast, 0, 2);
@@ -268,6 +270,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     movementLayout->addWidget(zDown, 3, 5);
     movementLayout->addWidget(zDownFast, 4, 5);
 	movementLayout->addWidget(AbortPath, 5, 0); 
+    movementLayout->addWidget(ResumePath, 5, 1);
 
     // Connect movement buttons to slots
     connect(leftFast, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
@@ -287,6 +290,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(slant3, &QPushButton::clicked, this, &MainWindow::onSlant3Clicked);
     connect(slant4, &QPushButton::clicked, this, &MainWindow::onSlant4Clicked);
 	connect(AbortPath, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
+	connect(ResumePath, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
 
     QGroupBox* movementBox = new QGroupBox();
     movementBox->setLayout(movementLayout);
@@ -336,7 +340,7 @@ QGroupBox* MainWindow::setupControlUI() {
     QPushButton* goToPosition1 = new QPushButton("Go To Position 1");
     m_microCam1Op.cameraBtn = new QPushButton("Start Duo Camera");
     QPushButton* captureMicroImg = new QPushButton("Capture Micro Img");
-    QPushButton* predictMicroImg = new QPushButton("Predict micro pos");
+    QPushButton* predictMicroImg = new QPushButton("Path");
 
     controlLayout->addWidget(m_arducamOp.cameraBtn);
     controlLayout->addWidget(captureMacroImg);
@@ -788,6 +792,8 @@ void MainWindow::onPredictMicroImg() {
 
 
 
+
+
 // Method to convert image coordinates to real coordinates using transformation matrix
 std::vector<cv::Point2f> MainWindow::convertImageToRealCoordinates(const std::vector<cv::Rect>& imageBoundingBoxes,
     const cv::Mat& transformMatrix) {
@@ -854,29 +860,38 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
                 LOG_INFO("Traversal aborted by user.");
 				return; 
     }
+
     for (size_t i = 0; i < realCoordinates.size(); ++i) {
-        const cv::Point2f& targetPoint = realCoordinates[i];
 
-        // Calculate relative movement from current position
-        double deltaX = targetPoint.x - globle_vars.current_x;
-        double deltaY = targetPoint.y - globle_vars.current_y;
-        double deltaZ = 29657 - globle_vars.current_z;  // Use 29657 as constant Z value
+        if (!pause) {
+            const cv::Point2f& targetPoint = realCoordinates[i];
 
-        LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
-            ": (" << targetPoint.x << ", " << targetPoint.y << ", 29657)");
-        LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
+            // Calculate relative movement from current position
+            double deltaX = targetPoint.x - globle_vars.current_x;
+            double deltaY = targetPoint.y - globle_vars.current_y;
+            double deltaZ = 29657 - globle_vars.current_z;  // Use 29657 as constant Z value
 
-        // Execute the move command
-        m_xyzStage.move(deltaX,0,0);
-        m_xyzStage.move(0,deltaY,0);
-        m_xyzStage.move(0,0,deltaZ);
+            LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
+                ": (" << targetPoint.x << ", " << targetPoint.y << ", 29657)");
+            LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
 
-        // Optional: Add a small delay between movements if needed
-        updatePositionDisplay();
-        QThread::msleep(1000);  // 500ms delay between points
+            // Execute the move command
+            m_xyzStage.move(deltaX, 0, 0);
+            m_xyzStage.move(0, deltaY, 0);
+            m_xyzStage.move(0, 0, deltaZ);
 
-        LOG_INFO("Reached point " << (i + 1) << " at position (" <<
-            globle_vars.current_x << ", " << globle_vars.current_y << ", " << globle_vars.current_z << ")");
+            // Optional: Add a small delay between movements if needed
+            updatePositionDisplay();
+            QThread::msleep(1000);  // 500ms delay between points
+
+            LOG_INFO("Reached point " << (i + 1) << " at position (" <<
+                globle_vars.current_x << ", " << globle_vars.current_y << ", " << globle_vars.current_z << ")");
+			pause = true;
+
+
+
+        }
+        
     }
 
     LOG_INFO("Traversal completed. Visited " << realCoordinates.size() << " points.");
@@ -1000,3 +1015,7 @@ void MainWindow::onAbortPathClicked() {
     this->abort = true;  
 }
 
+void MainWindow::onResumePathClicked() {
+    this->pause = false;
+    LOG_INFO("Traversal will resume shortly.");
+}
