@@ -307,8 +307,8 @@ QGroupBox* MainWindow::setupPositionUI() {
 
     QLabel* newPosLabel = new QLabel("New Position 1");
     m_x1 = new QLineEdit("59079");
-    m_y1 = new QLineEdit("159148");
-    m_z1 = new QLineEdit("0");
+    m_y1 = new QLineEdit("161148");
+    m_z1 = new QLineEdit("-960");
     m_stepEdit = new QLineEdit("100");
 
     QVBoxLayout* positionLayout = new QVBoxLayout();
@@ -863,34 +863,36 @@ void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
 
     for (size_t i = 0; i < realCoordinates.size(); ++i) {
 
-        if (!pause) {
-            const cv::Point2f& targetPoint = realCoordinates[i];
 
-            // Calculate relative movement from current position
-            double deltaX = targetPoint.x - globle_vars.current_x;
-            double deltaY = targetPoint.y - globle_vars.current_y;
-            double deltaZ = 29657 - globle_vars.current_z;  // Use 29657 as constant Z value
-
-            LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
-                ": (" << targetPoint.x << ", " << targetPoint.y << ", 29657)");
-            LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
-
-            // Execute the move command
-            m_xyzStage.move(deltaX, 0, 0);
-            m_xyzStage.move(0, deltaY, 0);
-            m_xyzStage.move(0, 0, deltaZ);
-
-            // Optional: Add a small delay between movements if needed
-            updatePositionDisplay();
-            QThread::msleep(1000);  // 500ms delay between points
-
-            LOG_INFO("Reached point " << (i + 1) << " at position (" <<
-                globle_vars.current_x << ", " << globle_vars.current_y << ", " << globle_vars.current_z << ")");
-			pause = true;
-
-
-
+        const cv::Point2f& targetPoint = realCoordinates[i];
+        if ( targetPoint.y < 18818) {
+            LOG_WARNING("Target point (" << targetPoint.x << ", " << targetPoint.y << ") is out of bounds. Skipping this point.");
+            continue; // Skip to the next point
         }
+
+        // Calculate relative movement from current position
+        double deltaX = targetPoint.x - globle_vars.current_x;
+        double deltaY = targetPoint.y - globle_vars.current_y;
+        double deltaZ = 27960 - globle_vars.current_z;  // Use 29657 as constant Z value
+
+        LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
+            ": (" << targetPoint.x << ", " << targetPoint.y << ", 29657)");
+        LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
+
+        // Execute the move command
+        n_xyzStage.move(deltaX, 0, 0);
+        n_xyzStage.move(0, deltaY, 0);
+        n_xyzStage.move(0, 0, deltaZ);
+
+        // Optional: Add a small delay between movements if needed
+        updatePositionDisplay();
+        QThread::msleep(10000);  // 500ms delay between points
+
+        LOG_INFO("Reached point " << (i + 1) << " at position (" <<
+            globle_vars.current_x << ", " << globle_vars.current_y << ", " << globle_vars.current_z << ")");
+
+
+
         
     }
 

@@ -170,6 +170,7 @@ private:
 	//int m_microCam2Index = 3;
 
 	XYZStage m_xyzStage;
+	XYZStage n_xyzStage;
 };
 
 #endif // MAINWINDOW_
