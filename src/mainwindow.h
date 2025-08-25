@@ -16,6 +16,7 @@
 #include <QGraphicsPixmapItem>
 #include "ZoomableGraphicsView.h"
 #include "XYZStage.h"
+#include "DetectionTraverser.h"
 
 
 struct cameraOp
@@ -103,19 +104,17 @@ public:
 	void onResumePathClicked();
 	void setMovementControlsEnabled(bool enabled);
 
+    void onTraversalStarted();
+    void onWaitingForUser();
+    void onConfirmAdjustmentClicked();
+    void onTraversalFinished(const QString& message);
+
 private:
     // Transformation methods
     cv::Mat calculateTransformationMatrix(const std::vector<cv::Point2f>& imagePoints,
         const std::vector<cv::Point2f>& realPoints);
-    std::vector<cv::Point2f> convertImageToRealCoordinates(const std::vector<cv::Rect>& imageBoundingBoxes,
-        const cv::Mat& transformMatrix);
-    std::vector<cv::Point2f> convertMacroImagePathToReal(const cv::Mat& transformMatrix);
-    void traverseRealCoordinatePath(const cv::Mat& transformMatrix);
-
-
 
     // private class members
-
     cv::Mat m_transformMatrix;
 
     QLabel* m_xLabel;
@@ -195,6 +194,11 @@ private:
     QPushButton* m_confirmAdjustmentBtn = nullptr;
 	QPushButton* m_abortPathBtn = nullptr;
     QPushButton* m_resumePathBtn = nullptr;
+
+    QPushButton* m_predictMicroImg = nullptr;
+
+    QThread* m_traverserThread = nullptr;
+    DetectionTraverser* m_traverser = nullptr;
 
 };
 
