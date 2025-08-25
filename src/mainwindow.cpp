@@ -206,96 +206,116 @@ QGroupBox* MainWindow::setupMovementUI() {
     // Movement controls
     QGridLayout* movementLayout = new QGridLayout();
 
-    QPushButton* leftFast = new QPushButton("←");
-    QPushButton* leftSlow = new QPushButton("←");
-    leftSlow->setStyleSheet("color: gray;");
+    m_leftFastBtn = new QPushButton("←");
+    m_leftSlowBtn = new QPushButton("←");
+    m_leftSlowBtn->setStyleSheet("color: gray;");
 
-    QPushButton* rightFast = new QPushButton("→");
-    QPushButton* rightSlow = new QPushButton("→");
-    rightSlow->setStyleSheet("color: gray;");
+    m_rightFastBtn = new QPushButton("→"); 
+    m_rightSlowBtn = new QPushButton("→");
+    m_rightSlowBtn->setStyleSheet("color: gray;");
 
-    QPushButton* upFast = new QPushButton("↑");
-    QPushButton* upSlow = new QPushButton("↑");
-    upSlow->setStyleSheet("color: gray;");
+    m_upFastBtn = new QPushButton("↑");
+    m_upSlowBtn = new QPushButton("↑");
+    m_upSlowBtn->setStyleSheet("color: gray;");
 
-    QPushButton* downFast = new QPushButton("↓");
-    QPushButton* downSlow = new QPushButton("↓");
-    downSlow->setStyleSheet("color: gray;");
+    m_downFastBtn = new QPushButton("↓");
+    m_downSlowBtn = new QPushButton("↓");
+    m_downSlowBtn->setStyleSheet("color: gray;");
 
-    QPushButton* zUp = new QPushButton("^");
-    QPushButton* zUpFast = new QPushButton("^^");
-    QPushButton* zDown = new QPushButton("v");
-    QPushButton* zDownFast = new QPushButton("vv");
+    m_zUpBtn = new QPushButton("^");
+    m_zUpFastBtn = new QPushButton("^^");
+    m_zDownBtn = new QPushButton("v");
+    m_zDownFastBtn = new QPushButton("vv");
 
-    QPushButton* slant1 = new QPushButton("↖");
-    QPushButton* slant2 = new QPushButton("↗");
-    QPushButton* slant3 = new QPushButton("↘");
-    QPushButton* slant4 = new QPushButton("↙");
-    QPushButton* AbortPath = new QPushButton("⏻");
-    QPushButton* ResumePath = new QPushButton("▶");
+    m_slant1Btn = new QPushButton("↖");
+    m_slant2Btn = new QPushButton("↗");
+    m_slant3Btn = new QPushButton("↘");
+    m_slant4Btn = new QPushButton("↙");
+    m_abortPathBtn = new QPushButton("⏻");
+    m_resumePathBtn = new QPushButton("▶");
 
-    leftFast->setFixedSize(30, 30);
-    leftSlow->setFixedSize(30, 30);
-    rightFast->setFixedSize(30, 30);
-    rightSlow->setFixedSize(30, 30);
-    upFast->setFixedSize(30, 30);
-    upSlow->setFixedSize(30, 30);
-    downFast->setFixedSize(30, 30);
-    downSlow->setFixedSize(30, 30);
-    zUp->setFixedSize(30, 30);
-    zUpFast->setFixedSize(30, 30);
-    zDown->setFixedSize(30, 30);
-    zDownFast->setFixedSize(30, 30);
-    slant1->setFixedSize(30, 30);
-    slant2->setFixedSize(30, 30);
-    slant3->setFixedSize(30, 30);
-    slant4->setFixedSize(30, 30);
-	AbortPath->setFixedSize(30, 30);
-	ResumePath->setFixedSize(30, 30);
+    m_leftFastBtn->setFixedSize(30, 30);
+    m_leftSlowBtn->setFixedSize(30, 30);
+    m_rightFastBtn->setFixedSize(30, 30);
+    m_rightSlowBtn->setFixedSize(30, 30);
+    m_upFastBtn->setFixedSize(30, 30);
+    m_upSlowBtn->setFixedSize(30, 30);
+    m_downFastBtn->setFixedSize(30, 30);
+    m_downSlowBtn->setFixedSize(30, 30);
+    m_zUpBtn->setFixedSize(30, 30);
+    m_zUpFastBtn->setFixedSize(30, 30);
+    m_zDownBtn->setFixedSize(30, 30);
+    m_zDownFastBtn->setFixedSize(30, 30);
+    m_slant1Btn->setFixedSize(30, 30);
+    m_slant2Btn->setFixedSize(30, 30);
+    m_slant3Btn->setFixedSize(30, 30);
+    m_slant4Btn->setFixedSize(30, 30);
+    m_abortPathBtn->setFixedSize(30, 30);
+    m_resumePathBtn->setFixedSize(30, 30);
 
-    movementLayout->addWidget(slant1, 1, 1);
-    movementLayout->addWidget(upFast, 0, 2);
-    movementLayout->addWidget(upSlow, 1, 2);
-    movementLayout->addWidget(slant2, 1, 3);
-    movementLayout->addWidget(leftFast, 2, 0);
-    movementLayout->addWidget(leftSlow, 2, 1);
-    movementLayout->addWidget(rightFast, 2, 4);
-    movementLayout->addWidget(rightSlow, 2, 3);
-    movementLayout->addWidget(slant4, 3, 1);
-    movementLayout->addWidget(downFast, 4, 2);
-    movementLayout->addWidget(downSlow, 3, 2);
-    movementLayout->addWidget(slant3, 3, 3);
-    movementLayout->addWidget(zUpFast, 0, 5);
-    movementLayout->addWidget(zUp, 1, 5);
-    movementLayout->addWidget(zDown, 3, 5);
-    movementLayout->addWidget(zDownFast, 4, 5);
-	movementLayout->addWidget(AbortPath, 5, 0); 
-    movementLayout->addWidget(ResumePath, 5, 1);
+    movementLayout->addWidget(m_slant1Btn, 1, 1);
+    movementLayout->addWidget(m_upFastBtn, 0, 2);
+    movementLayout->addWidget(m_upSlowBtn, 1, 2);
+    movementLayout->addWidget(m_slant2Btn, 1, 3);
+    movementLayout->addWidget(m_leftFastBtn, 2, 0);
+    movementLayout->addWidget(m_leftSlowBtn, 2, 1);
+    movementLayout->addWidget(m_rightFastBtn, 2, 4);
+    movementLayout->addWidget(m_rightSlowBtn, 2, 3);
+    movementLayout->addWidget(m_slant4Btn, 3, 1);
+    movementLayout->addWidget(m_downFastBtn, 4, 2);
+    movementLayout->addWidget(m_downSlowBtn, 3, 2);
+    movementLayout->addWidget(m_slant3Btn, 3, 3);
+    movementLayout->addWidget(m_zUpFastBtn, 0, 5);
+    movementLayout->addWidget(m_zUpBtn, 1, 5);
+    movementLayout->addWidget(m_zDownBtn, 3, 5);
+    movementLayout->addWidget(m_zDownFastBtn, 4, 5);
+    movementLayout->addWidget(m_abortPathBtn, 5, 0);
+    movementLayout->addWidget(m_resumePathBtn, 5, 1);
 
     // Connect movement buttons to slots
-    connect(leftFast, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
-    connect(leftSlow, &QPushButton::clicked, this, &MainWindow::onLeftSlowClicked);
-    connect(rightFast, &QPushButton::clicked, this, &MainWindow::onRightFastClicked);
-    connect(rightSlow, &QPushButton::clicked, this, &MainWindow::onRightSlowClicked);
-    connect(upFast, &QPushButton::clicked, this, &MainWindow::onUpFastClicked);
-    connect(upSlow, &QPushButton::clicked, this, &MainWindow::onUpSlowClicked);
-    connect(downFast, &QPushButton::clicked, this, &MainWindow::onDownFastClicked);
-    connect(downSlow, &QPushButton::clicked, this, &MainWindow::onDownSlowClicked);
-    connect(zUp, &QPushButton::clicked, this, &MainWindow::onZUpClicked);
-    connect(zUpFast, &QPushButton::clicked, this, &MainWindow::onZUpFastClicked);
-    connect(zDown, &QPushButton::clicked, this, &MainWindow::onZDownClicked);
-    connect(zDownFast, &QPushButton::clicked, this, &MainWindow::onZDownFastClicked);
-    connect(slant1, &QPushButton::clicked, this, &MainWindow::onSlant1Clicked);
-    connect(slant2, &QPushButton::clicked, this, &MainWindow::onSlant2Clicked);
-    connect(slant3, &QPushButton::clicked, this, &MainWindow::onSlant3Clicked);
-    connect(slant4, &QPushButton::clicked, this, &MainWindow::onSlant4Clicked);
-	connect(AbortPath, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
-	connect(ResumePath, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
+    connect(m_leftFastBtn, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
+    connect(m_leftSlowBtn, &QPushButton::clicked, this, &MainWindow::onLeftSlowClicked);
+    connect(m_rightFastBtn, &QPushButton::clicked, this, &MainWindow::onRightFastClicked);
+    connect(m_rightSlowBtn, &QPushButton::clicked, this, &MainWindow::onRightSlowClicked);
+    connect(m_upFastBtn, &QPushButton::clicked, this, &MainWindow::onUpFastClicked);
+    connect(m_upSlowBtn, &QPushButton::clicked, this, &MainWindow::onUpSlowClicked);
+    connect(m_downFastBtn, &QPushButton::clicked, this, &MainWindow::onDownFastClicked);
+    connect(m_downSlowBtn, &QPushButton::clicked, this, &MainWindow::onDownSlowClicked);
+    connect(m_zUpBtn, &QPushButton::clicked, this, &MainWindow::onZUpClicked);
+    connect(m_zUpFastBtn, &QPushButton::clicked, this, &MainWindow::onZUpFastClicked);
+    connect(m_zDownBtn, &QPushButton::clicked, this, &MainWindow::onZDownClicked);
+    connect(m_zDownFastBtn, &QPushButton::clicked, this, &MainWindow::onZDownFastClicked);
+    connect(m_slant1Btn, &QPushButton::clicked, this, &MainWindow::onSlant1Clicked);
+    connect(m_slant2Btn, &QPushButton::clicked, this, &MainWindow::onSlant2Clicked);
+    connect(m_slant3Btn, &QPushButton::clicked, this, &MainWindow::onSlant3Clicked);
+    connect(m_slant4Btn, &QPushButton::clicked, this, &MainWindow::onSlant4Clicked);
+    connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
+    connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
 
     QGroupBox* movementBox = new QGroupBox();
     movementBox->setLayout(movementLayout);
 
     return movementBox;
+}
+
+void MainWindow::setMovementControlsEnabled(bool enabled) {
+    m_leftFastBtn->setEnabled(enabled);
+    m_leftSlowBtn->setEnabled(enabled);
+    m_rightFastBtn->setEnabled(enabled);
+    m_rightSlowBtn->setEnabled(enabled);
+    m_upFastBtn->setEnabled(enabled);
+    m_upSlowBtn->setEnabled(enabled);
+    m_downFastBtn->setEnabled(enabled);
+    m_downSlowBtn->setEnabled(enabled);
+    m_zUpBtn->setEnabled(enabled);
+    m_zUpFastBtn->setEnabled(enabled);
+    m_zDownBtn->setEnabled(enabled);
+    m_zDownFastBtn->setEnabled(enabled);
+    m_slant1Btn->setEnabled(enabled);
+    m_slant2Btn->setEnabled(enabled);
+    m_slant3Btn->setEnabled(enabled);
+    m_slant4Btn->setEnabled(enabled);
+    m_goToPositionBtn->setEnabled(enabled);
 }
 
 
@@ -337,7 +357,7 @@ QGroupBox* MainWindow::setupControlUI() {
     m_arducamOp.cameraBtn = new QPushButton("Start Camera");
     QPushButton* captureMacroImg = new QPushButton("Capture Macro Img");
     QPushButton* predictMacroImg = new QPushButton("Predict Macro pos");
-    QPushButton* goToPosition1 = new QPushButton("Go To Position 1");
+    m_goToPositionBtn = new QPushButton("Go To Position 1");
     m_microCam1Op.cameraBtn = new QPushButton("Start Duo Camera");
     QPushButton* captureMicroImg = new QPushButton("Capture Micro Img");
     QPushButton* predictMicroImg = new QPushButton("Path");
@@ -345,7 +365,7 @@ QGroupBox* MainWindow::setupControlUI() {
     controlLayout->addWidget(m_arducamOp.cameraBtn);
     controlLayout->addWidget(captureMacroImg);
     controlLayout->addWidget(predictMacroImg);
-    controlLayout->addWidget(goToPosition1);
+    controlLayout->addWidget(m_goToPositionBtn);
     controlLayout->addWidget(m_microCam1Op.cameraBtn);
     controlLayout->addWidget(captureMicroImg);
     controlLayout->addWidget(predictMicroImg);
@@ -353,7 +373,7 @@ QGroupBox* MainWindow::setupControlUI() {
     connect(m_arducamOp.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartArducam);
     connect(captureMacroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMacroImg);
     connect(predictMacroImg, &QPushButton::clicked, this, &MainWindow::onPredictMacroImg);
-    connect(goToPosition1, &QPushButton::clicked, this, &MainWindow::onGoToPosition1);
+    connect(m_goToPositionBtn, &QPushButton::clicked, this, &MainWindow::onGoToPosition1);
     connect(m_microCam1Op.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartDuocam);
     connect(captureMicroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMicroImg);
     connect(predictMicroImg, &QPushButton::clicked, this, &MainWindow::onPredictMicroImg);
@@ -611,6 +631,7 @@ void MainWindow::onCaptureMacroImg() {
     else {
         LOG_WARNING("Captured macro image is empty. Not saving.");
     }
+    
     
 }
 
