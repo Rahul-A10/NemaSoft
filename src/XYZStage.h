@@ -58,6 +58,10 @@ private:
     std::condition_variable m_condition;
     std::atomic<bool> m_stopWorker;
 
+    std::mutex m_syncMutex;
+    std::condition_variable m_syncCondition;
+    std::atomic<bool> m_isWaitingForMoveCompletion{ false };
+
     void worker();
 
     // Private helper method to get serial handle
@@ -74,6 +78,9 @@ public:
 
     // Public move method
     void move(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);
+
+    // Worker Blocking move method that waits for movement to complete
+    void move_and_wait(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);
 
     // Getter for current position
     XYZStage::Position getPosition() const { return position; }

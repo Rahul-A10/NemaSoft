@@ -175,6 +175,13 @@ MainWindow::~MainWindow() {
         m_microCam2Op.thrd->quit();
         m_microCam2Op.thrd->wait();
     }
+
+    if (m_traverserThread) {
+        m_traverser->abortTraversal();
+        m_traverserThread->quit();
+        m_traverserThread->wait();
+    }
+    //delete m_traverser;
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)
@@ -233,6 +240,10 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_slant4Btn = new QPushButton("↙");
     m_abortPathBtn = new QPushButton("⏻");
     m_resumePathBtn = new QPushButton("▶");
+    m_resumePathBtn->hide();
+
+    m_confirmAdjustmentBtn = new QPushButton("✔ Confirm");
+    m_confirmAdjustmentBtn->setEnabled(false);
 
     m_leftFastBtn->setFixedSize(30, 30);
     m_leftSlowBtn->setFixedSize(30, 30);
@@ -252,6 +263,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_slant4Btn->setFixedSize(30, 30);
     m_abortPathBtn->setFixedSize(30, 30);
     m_resumePathBtn->setFixedSize(30, 30);
+    m_confirmAdjustmentBtn->setFixedSize(80, 30);
 
     movementLayout->addWidget(m_slant1Btn, 1, 1);
     movementLayout->addWidget(m_upFastBtn, 0, 2);
@@ -271,6 +283,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     movementLayout->addWidget(m_zDownFastBtn, 4, 5);
     movementLayout->addWidget(m_abortPathBtn, 5, 0);
     movementLayout->addWidget(m_resumePathBtn, 5, 1);
+    movementLayout->addWidget(m_confirmAdjustmentBtn, 5, 2);
 
     // Connect movement buttons to slots
     connect(m_leftFastBtn, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
@@ -290,7 +303,8 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(m_slant3Btn, &QPushButton::clicked, this, &MainWindow::onSlant3Clicked);
     connect(m_slant4Btn, &QPushButton::clicked, this, &MainWindow::onSlant4Clicked);
     connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
-    connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
+    //connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
+    connect(m_confirmAdjustmentBtn, &QPushButton::clicked, this, &MainWindow::onConfirmAdjustmentClicked);
 
     QGroupBox* movementBox = new QGroupBox();
     movementBox->setLayout(movementLayout);
@@ -360,7 +374,7 @@ QGroupBox* MainWindow::setupControlUI() {
     m_goToPositionBtn = new QPushButton("Go To Position 1");
     m_microCam1Op.cameraBtn = new QPushButton("Start Duo Camera");
     QPushButton* captureMicroImg = new QPushButton("Capture Micro Img");
-    QPushButton* predictMicroImg = new QPushButton("Path");
+    m_predictMicroImg = new QPushButton("Path");
 
     controlLayout->addWidget(m_arducamOp.cameraBtn);
     controlLayout->addWidget(captureMacroImg);
@@ -368,7 +382,7 @@ QGroupBox* MainWindow::setupControlUI() {
     controlLayout->addWidget(m_goToPositionBtn);
     controlLayout->addWidget(m_microCam1Op.cameraBtn);
     controlLayout->addWidget(captureMicroImg);
-    controlLayout->addWidget(predictMicroImg);
+    controlLayout->addWidget(m_predictMicroImg);
 
     connect(m_arducamOp.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartArducam);
     connect(captureMacroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMacroImg);
@@ -376,7 +390,7 @@ QGroupBox* MainWindow::setupControlUI() {
     connect(m_goToPositionBtn, &QPushButton::clicked, this, &MainWindow::onGoToPosition1);
     connect(m_microCam1Op.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartDuocam);
     connect(captureMicroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMicroImg);
-    connect(predictMicroImg, &QPushButton::clicked, this, &MainWindow::onPredictMicroImg);
+    connect(m_predictMicroImg, &QPushButton::clicked, this, &MainWindow::onPredictMicroImg);
 
     QGroupBox* controlBox = new QGroupBox();
     controlBox->setLayout(controlLayout);
@@ -395,7 +409,10 @@ cv::Mat MainWindow::calculateTransformationMatrix(const std::vector<cv::Point2f>
     // Calculate affine transformation matrix using 3 point pairs
     cv::Mat transformMatrix = cv::getAffineTransform(imagePoints, realPoints);
 
-    LOG_INFO("Transformation matrix calculated successfully", transformMatrix);
+    LOG_INFO("Transformation matrix calculated successfully");
+    std::stringstream ss;
+    ss << "Affine Matrix is: " << transformMatrix;
+    LOG_INFO(ss.str());
 
     return transformMatrix;
 }
@@ -806,122 +823,83 @@ void MainWindow::onPredictMicroImg() {
     }
 
     LOG_INFO("Starting traversal of detected macro image path...");
-    traverseRealCoordinatePath(m_transformMatrix);
-    ;
+
+    m_traverser = new DetectionTraverser(&m_xyzStage);
+
+    m_traverserThread = new QThread(this);
+    m_traverser->moveToThread(m_traverserThread);
+    m_traverser->setTraversalData(m_macroImgPath, m_transformMatrix);
+
+    // Connect signals from the worker to slots in the main window
+    connect(m_traverserThread, &QThread::started, m_traverser, &DetectionTraverser::process);
+    connect(m_traverser, &DetectionTraverser::traversalStarted, this, &MainWindow::onTraversalStarted);
+    connect(m_traverser, &DetectionTraverser::waitingForUserAdjustment, this, &MainWindow::onWaitingForUser);
+    connect(m_traverser, &DetectionTraverser::traversalFinished, this, &MainWindow::onTraversalFinished);
+
+    // For cleanup
+    connect(m_traverserThread, &QThread::finished, m_traverserThread, &QObject::deleteLater);
+
+    m_traverserThread->start();
 }
 
-
-
-
-
-
-// Method to convert image coordinates to real coordinates using transformation matrix
-std::vector<cv::Point2f> MainWindow::convertImageToRealCoordinates(const std::vector<cv::Rect>& imageBoundingBoxes,
-    const cv::Mat& transformMatrix) {
-    std::vector<cv::Point2f> realCoordinates;
-
-    if (transformMatrix.empty()) {
-        LOG_WARNING("Transformation matrix is empty. Cannot convert coordinates.");
-        return realCoordinates;
-    }
-
-    // Convert each bounding box center to real coordinates
-    for (const auto& box : imageBoundingBoxes) {
-        // Get center point of bounding box
-        cv::Point2f imageCenter(box.x + box.width / 2.0f, box.y + box.height / 2.0f);
-
-        // Apply affine transformation
-        std::vector<cv::Point2f> imagePoints = { imageCenter };
-        std::vector<cv::Point2f> transformedPoints;
-
-        cv::transform(imagePoints, transformedPoints, transformMatrix);
-
-        realCoordinates.push_back(transformedPoints[0]);
-
-        LOG_INFO("Converted image point (" << imageCenter.x << ", " << imageCenter.y <<
-            ") to real coordinate (" << transformedPoints[0].x << ", " << transformedPoints[0].y << ")");
-    }
-
-    return realCoordinates;
+void MainWindow::onTraversalStarted() {
+    LOG_INFO("UI received traversalStarted signal. Disabling controls.");
+    setMovementControlsEnabled(false);
+    m_goToPositionBtn->setEnabled(false);
+    m_confirmAdjustmentBtn->setEnabled(false);
+    // Also disable the "Path" button to prevent starting twice
+	m_predictMicroImg->setEnabled(false);
 }
 
-// Convenience method to convert m_macroImgPath to real coordinates
-std::vector<cv::Point2f> MainWindow::convertMacroImagePathToReal(const cv::Mat& transformMatrix) {
-    std::stringstream ss;
-    ss << "Affine Matrix is: " << transformMatrix;
-    LOG_INFO(ss.str());
-    return convertImageToRealCoordinates(m_macroImgPath, transformMatrix);
+void MainWindow::onWaitingForUser() {
+    LOG_INFO("UI received waitingForUserAdjustment signal. Enabling adjustment controls.");
+    // NOW enable controls for fine-tuning
+    setMovementControlsEnabled(true);
+    m_confirmAdjustmentBtn->setEnabled(true);
 }
 
-// Method to traverse the real coordinate path using move commands
-void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
-    if (transformMatrix.empty()) {
-        LOG_WARNING("Transformation matrix is empty. Cannot traverse path.");
-        return;
-    }
+void MainWindow::onConfirmAdjustmentClicked() {
+    LOG_INFO("User confirmed adjustment. Capturing images and proceeding.");
 
-    if (m_macroImgPath.empty()) {
-        LOG_WARNING("No macro image path detected. Cannot traverse path.");
-        return;
-    }
+    // First, disable controls again so user can't move during capture/next move
+    setMovementControlsEnabled(false);
+    m_confirmAdjustmentBtn->setEnabled(false);
 
-    // Convert image coordinates to real coordinates
-    std::vector<cv::Point2f> realCoordinates = convertMacroImagePathToReal(transformMatrix);
+    // Capture the images
+    onCaptureMicroImg();
 
-    if (realCoordinates.empty()) {
-        LOG_WARNING("No real coordinates calculated. Cannot traverse path.");
-        return;
-    }
-
-    LOG_INFO("Starting traversal of " << realCoordinates.size() << " detected points");
-
-    // Traverse each real coordinate point
-	
-    if (abort) {
-                LOG_INFO("Traversal aborted by user.");
-				return; 
-    }
-
-    for (size_t i = 0; i < realCoordinates.size(); ++i) {
-
-
-        const cv::Point2f& targetPoint = realCoordinates[i];
-        if ( targetPoint.y < 18818) {
-            LOG_WARNING("Target point (" << targetPoint.x << ", " << targetPoint.y << ") is out of bounds. Skipping this point.");
-            continue; // Skip to the next point
-        }
-
-        // Calculate relative movement from current position
-        double deltaX = targetPoint.x - globle_vars.current_x;
-        double deltaY = targetPoint.y - globle_vars.current_y;
-        double deltaZ = 27960 - globle_vars.current_z;  // Use 29657 as constant Z value
-
-        LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
-            ": (" << targetPoint.x << ", " << targetPoint.y << ", 29657)");
-        LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
-
-        // Execute the move command
-        n_xyzStage.move(deltaX, 0, 0);
-        n_xyzStage.move(0, deltaY, 0);
-        n_xyzStage.move(0, 0, deltaZ);
-
-        // Optional: Add a small delay between movements if needed
-        updatePositionDisplay();
-        QThread::msleep(10000);  // 500ms delay between points
-
-        LOG_INFO("Reached point " << (i + 1) << " at position (" <<
-            globle_vars.current_x << ", " << globle_vars.current_y << ", " << globle_vars.current_z << ")");
-
-
-
-        
-    }
-
-    LOG_INFO("Traversal completed. Visited " << realCoordinates.size() << " points.");
+    // Tell the traverser thread to wake up and continue
+    // Use invokeMethod to ensure it's called in the context of the other thread
+    QMetaObject::invokeMethod(m_traverser, "userConfirmedAdjustment", Qt::QueuedConnection);
 }
 
+void MainWindow::onTraversalFinished(const QString& message) {
+    LOG_INFO("UI received traversalFinished signal: " << message.toStdString());
 
+    // Re-enable all controls
+    setMovementControlsEnabled(true);
+    m_goToPositionBtn->setEnabled(true);
+    m_confirmAdjustmentBtn->setEnabled(false); // Disable until next pause
 
+    // Clean up the thread
+    if (m_traverserThread) {
+        m_traverserThread->quit();
+        m_traverserThread->wait(); // ensure it's finished
+        m_traverserThread = nullptr;
+    }
+
+	m_predictMicroImg->setEnabled(true);
+}
+
+void MainWindow::onAbortPathClicked() {
+    LOG_INFO("Abort button clicked.");
+    if (m_traverser) {
+        // Use invokeMethod for thread safety
+        QMetaObject::invokeMethod(m_traverser, "abortTraversal", Qt::QueuedConnection);
+    }
+    // The onTraversalFinished slot will handle UI cleanup
+    m_predictMicroImg->setEnabled(true);
+}
 
 
 void MainWindow::onGoToPosition1() {  
@@ -1032,10 +1010,6 @@ void MainWindow::onSlant4Clicked() {
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(-10.0* stepValue, 0.0, 0.0);
     m_xyzStage.move(0.0, 10.0* stepValue, 0.0);
-}
-void MainWindow::onAbortPathClicked() {
-    LOG_INFO("Aborted by the User");  
-    this->abort = true;  
 }
 
 void MainWindow::onResumePathClicked() {
