@@ -101,6 +101,7 @@ public:
     void setupTransformationMatrix();
     void onAbortPathClicked();
 	void onResumePathClicked();
+	void setMovementControlsEnabled(bool enabled);
 
 private:
     // Transformation methods
@@ -171,6 +172,30 @@ private:
 
 	XYZStage m_xyzStage;
 	XYZStage n_xyzStage;
+
+    // Movement control buttons
+    QPushButton* m_leftFastBtn = nullptr;
+    QPushButton* m_leftSlowBtn = nullptr;
+    QPushButton* m_rightFastBtn = nullptr;
+    QPushButton* m_rightSlowBtn = nullptr;
+    QPushButton* m_upFastBtn = nullptr;
+    QPushButton* m_upSlowBtn = nullptr;
+    QPushButton* m_downFastBtn = nullptr;
+    QPushButton* m_downSlowBtn = nullptr;
+    QPushButton* m_zUpBtn = nullptr;
+    QPushButton* m_zUpFastBtn = nullptr;
+    QPushButton* m_zDownBtn = nullptr;
+    QPushButton* m_zDownFastBtn = nullptr;
+    QPushButton* m_slant1Btn = nullptr;
+    QPushButton* m_slant2Btn = nullptr;
+    QPushButton* m_slant3Btn = nullptr;
+    QPushButton* m_slant4Btn = nullptr;
+
+    QPushButton* m_goToPositionBtn = nullptr;
+    QPushButton* m_confirmAdjustmentBtn = nullptr;
+	QPushButton* m_abortPathBtn = nullptr;
+    QPushButton* m_resumePathBtn = nullptr;
+
 };
 
 #endif // MAINWINDOW_
