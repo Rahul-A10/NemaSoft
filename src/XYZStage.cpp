@@ -120,7 +120,7 @@ void XYZStage::parsePositionResponse(const std::string& response) {
 // Helper method to read response from COM port
 std::string XYZStage::readResponse(HANDLE hSerial, int maxWaitMs) {
     std::string response = "";
-    char buffer[512] = { 0 };
+    char buffer[256] = { 0 };
     DWORD bytesRead = 0;
 
     // Wait a bit for device to respond
