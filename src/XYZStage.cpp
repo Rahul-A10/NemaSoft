@@ -120,7 +120,7 @@ void XYZStage::parsePositionResponse(const std::string& response) {
 // Helper method to read response from COM port
 std::string XYZStage::readResponse(HANDLE hSerial, int maxWaitMs) {
     std::string response = "";
-    char buffer[512] = { 0 };
+    char buffer[256] = { 0 };
     DWORD bytesRead = 0;
 
     // Wait a bit for device to respond
@@ -431,8 +431,8 @@ void XYZStage::move_and_wait(double dx, double dy, double dz, double velocity_x,
         move(dx, dy, dz, velocity_x, velocity_y, velocity_z);
 
         // Now, wait until the worker thread signals completion
-        LOG_INFO("move_and_wait: Waiting for move to complete...");
+        //LOG_INFO("move_and_wait: Waiting for move to complete...");
         m_syncCondition.wait(lock, [this] { return !m_isWaitingForMoveCompletion.load(); });
-        LOG_INFO("move_and_wait: Move completed. Proceeding.");
+        //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     }
 }

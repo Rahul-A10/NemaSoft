@@ -540,7 +540,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(IMG, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -868,20 +868,20 @@ void MainWindow::onWaitingForUser() {
 
 void MainWindow::onConfirmAdjustmentClicked() {
     LOG_INFO("User confirmed adjustment. Capturing images and proceeding.");
-
+    
     // First, disable controls again so user can't move during capture/next move
     setMovementControlsEnabled(false);
     m_confirmAdjustmentBtn->setEnabled(false);
 
     // Capture the images
     onCaptureMicroImg();
-
+    //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
 }
 
 void MainWindow::onTraversalFinished(const QString& message) {
-    LOG_INFO("UI received traversalFinished signal: " << message.toStdString());
+    //LOG_INFO("UI received traversalFinished signal: " << message.toStdString());
 
     // Re-enable all controls
     setMovementControlsEnabled(true);
