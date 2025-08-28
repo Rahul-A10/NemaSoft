@@ -866,8 +866,8 @@ void MainWindow::onConfirmAdjustmentClicked() {
     m_confirmAdjustmentBtn->setEnabled(false);
 
     // Capture the images
-    //onCaptureMicroImg();
-
+    onCaptureMicroImg();
+    //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
     // Use invokeMethod to ensure it's called in the context of the other thread
     QMetaObject::invokeMethod(m_traverser, "userConfirmedAdjustment", Qt::DirectConnection);
