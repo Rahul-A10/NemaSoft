@@ -654,36 +654,36 @@ void MainWindow::onCaptureMacroImg() {
 
 void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rect>& boxCentroids) {
 
-	// TODO: decide how to handle the inference result - directly update here or pass to camera worker?
+    // TODO: decide how to handle the inference result - directly update here or pass to camera worker?
     //m_arducamOp.camWorker->clearCapturedFrame(); // remove the captured frame
     //m_arducamOp.camWorker->setCapturedFrame(frame); // add the frame with detection rectangles
     //m_arducamOp.camWorker->start();
 
-	// TODO: cameraworker::stop exits from the process loop, so camera thrd is no longer active
-	// updating the frame as above does not show the rendered img as thrd is is not running
-	// might need to add wait method to CameraWorker to actually wait and stop can be used to exit thrd?
+    // TODO: cameraworker::stop exits from the process loop, so camera thrd is no longer active
+    // updating the frame as above does not show the rendered img as thrd is is not running
+    // might need to add wait method to CameraWorker to actually wait and stop can be used to exit thrd?
 
-	// save the output frame to a file
+    // save the output frame to a file
     cv::imwrite("output.jpg", frame);
 
-	LOG_INFO("Showing inference result");
+    LOG_INFO("Showing inference result");
 
-	cv::Mat resized;
+    cv::Mat resized;
     cv::resize(frame, resized, cv::Size(3840, 2160));
     QImage qImage(resized.data, resized.cols, resized.rows, resized.step, QImage::Format_RGB888);
     updateFrame(qImage.copy(), ARDUCAM);
-	// copy the boxCentroids to use them later to change the color of detected boxes once processed
-	m_macroImgPath.clear();
-	m_macroImgPath = boxCentroids;
+    // copy the boxCentroids to use them later to change the color of detected boxes once processed
+    m_macroImgPath.clear();
+    m_macroImgPath = boxCentroids;
 
-	// Clean up inference worker and thread
-	m_macroImgInference.free();
+    // Clean up inference worker and thread
+    m_macroImgInference.free();
     m_arducamOp.toggleCamera();
     m_arducamOp.cameraBtn->setText("Restart Arducam");
 
 }
 
-
+}
 
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
