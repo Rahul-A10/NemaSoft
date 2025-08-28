@@ -84,7 +84,7 @@ public:
     void move_and_wait(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);
 
     // Getter for current position
-    XYZStage::Position getPosition() const { return position; }
+    XYZStage::Position getPosition();
 
 	// currently unused
     // Getter for port

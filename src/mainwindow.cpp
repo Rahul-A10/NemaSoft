@@ -242,7 +242,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_resumePathBtn = new QPushButton("▶");
     m_resumePathBtn->hide();
 
-    m_confirmAdjustmentBtn = new QPushButton("✔ Confirm");
+    m_confirmAdjustmentBtn = new QPushButton("✔");
     m_confirmAdjustmentBtn->setEnabled(false);
 
     m_leftFastBtn->setFixedSize(30, 30);
@@ -263,7 +263,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_slant4Btn->setFixedSize(30, 30);
     m_abortPathBtn->setFixedSize(30, 30);
     m_resumePathBtn->setFixedSize(30, 30);
-    m_confirmAdjustmentBtn->setFixedSize(80, 30);
+    m_confirmAdjustmentBtn->setFixedSize(30, 30);
 
     movementLayout->addWidget(m_slant1Btn, 1, 1);
     movementLayout->addWidget(m_upFastBtn, 0, 2);
