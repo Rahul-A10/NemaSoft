@@ -175,6 +175,13 @@ MainWindow::~MainWindow() {
         m_microCam2Op.thrd->quit();
         m_microCam2Op.thrd->wait();
     }
+
+    if (m_traverserThread) {
+        m_traverser->abortTraversal();
+        m_traverserThread->quit();
+        m_traverserThread->wait();
+    }
+    //delete m_traverser;
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)
@@ -206,96 +213,123 @@ QGroupBox* MainWindow::setupMovementUI() {
     // Movement controls
     QGridLayout* movementLayout = new QGridLayout();
 
-    QPushButton* leftFast = new QPushButton("←");
-    QPushButton* leftSlow = new QPushButton("←");
-    leftSlow->setStyleSheet("color: gray;");
+    m_leftFastBtn = new QPushButton("←");
+    m_leftSlowBtn = new QPushButton("←");
+    m_leftSlowBtn->setStyleSheet("color: gray;");
 
-    QPushButton* rightFast = new QPushButton("→");
-    QPushButton* rightSlow = new QPushButton("→");
-    rightSlow->setStyleSheet("color: gray;");
+    m_rightFastBtn = new QPushButton("→"); 
+    m_rightSlowBtn = new QPushButton("→");
+    m_rightSlowBtn->setStyleSheet("color: gray;");
 
-    QPushButton* upFast = new QPushButton("↑");
-    QPushButton* upSlow = new QPushButton("↑");
-    upSlow->setStyleSheet("color: gray;");
+    m_upFastBtn = new QPushButton("↑");
+    m_upSlowBtn = new QPushButton("↑");
+    m_upSlowBtn->setStyleSheet("color: gray;");
 
-    QPushButton* downFast = new QPushButton("↓");
-    QPushButton* downSlow = new QPushButton("↓");
-    downSlow->setStyleSheet("color: gray;");
+    m_downFastBtn = new QPushButton("↓");
+    m_downSlowBtn = new QPushButton("↓");
+    m_downSlowBtn->setStyleSheet("color: gray;");
 
-    QPushButton* zUp = new QPushButton("^");
-    QPushButton* zUpFast = new QPushButton("^^");
-    QPushButton* zDown = new QPushButton("v");
-    QPushButton* zDownFast = new QPushButton("vv");
+    m_zUpBtn = new QPushButton("^");
+    m_zUpFastBtn = new QPushButton("^^");
+    m_zDownBtn = new QPushButton("v");
+    m_zDownFastBtn = new QPushButton("vv");
 
-    QPushButton* slant1 = new QPushButton("↖");
-    QPushButton* slant2 = new QPushButton("↗");
-    QPushButton* slant3 = new QPushButton("↘");
-    QPushButton* slant4 = new QPushButton("↙");
-    QPushButton* AbortPath = new QPushButton("⏻");
-    QPushButton* ResumePath = new QPushButton("▶");
+    m_slant1Btn = new QPushButton("↖");
+    m_slant2Btn = new QPushButton("↗");
+    m_slant3Btn = new QPushButton("↘");
+    m_slant4Btn = new QPushButton("↙");
+    m_abortPathBtn = new QPushButton("⏻");
+    m_resumePathBtn = new QPushButton("▶");
+    m_resumePathBtn->hide();
 
-    leftFast->setFixedSize(30, 30);
-    leftSlow->setFixedSize(30, 30);
-    rightFast->setFixedSize(30, 30);
-    rightSlow->setFixedSize(30, 30);
-    upFast->setFixedSize(30, 30);
-    upSlow->setFixedSize(30, 30);
-    downFast->setFixedSize(30, 30);
-    downSlow->setFixedSize(30, 30);
-    zUp->setFixedSize(30, 30);
-    zUpFast->setFixedSize(30, 30);
-    zDown->setFixedSize(30, 30);
-    zDownFast->setFixedSize(30, 30);
-    slant1->setFixedSize(30, 30);
-    slant2->setFixedSize(30, 30);
-    slant3->setFixedSize(30, 30);
-    slant4->setFixedSize(30, 30);
-	AbortPath->setFixedSize(30, 30);
-	ResumePath->setFixedSize(30, 30);
+    m_confirmAdjustmentBtn = new QPushButton("✔ Confirm");
+    m_confirmAdjustmentBtn->setEnabled(false);
 
-    movementLayout->addWidget(slant1, 1, 1);
-    movementLayout->addWidget(upFast, 0, 2);
-    movementLayout->addWidget(upSlow, 1, 2);
-    movementLayout->addWidget(slant2, 1, 3);
-    movementLayout->addWidget(leftFast, 2, 0);
-    movementLayout->addWidget(leftSlow, 2, 1);
-    movementLayout->addWidget(rightFast, 2, 4);
-    movementLayout->addWidget(rightSlow, 2, 3);
-    movementLayout->addWidget(slant4, 3, 1);
-    movementLayout->addWidget(downFast, 4, 2);
-    movementLayout->addWidget(downSlow, 3, 2);
-    movementLayout->addWidget(slant3, 3, 3);
-    movementLayout->addWidget(zUpFast, 0, 5);
-    movementLayout->addWidget(zUp, 1, 5);
-    movementLayout->addWidget(zDown, 3, 5);
-    movementLayout->addWidget(zDownFast, 4, 5);
-	movementLayout->addWidget(AbortPath, 5, 0); 
-    movementLayout->addWidget(ResumePath, 5, 1);
+    m_leftFastBtn->setFixedSize(30, 30);
+    m_leftSlowBtn->setFixedSize(30, 30);
+    m_rightFastBtn->setFixedSize(30, 30);
+    m_rightSlowBtn->setFixedSize(30, 30);
+    m_upFastBtn->setFixedSize(30, 30);
+    m_upSlowBtn->setFixedSize(30, 30);
+    m_downFastBtn->setFixedSize(30, 30);
+    m_downSlowBtn->setFixedSize(30, 30);
+    m_zUpBtn->setFixedSize(30, 30);
+    m_zUpFastBtn->setFixedSize(30, 30);
+    m_zDownBtn->setFixedSize(30, 30);
+    m_zDownFastBtn->setFixedSize(30, 30);
+    m_slant1Btn->setFixedSize(30, 30);
+    m_slant2Btn->setFixedSize(30, 30);
+    m_slant3Btn->setFixedSize(30, 30);
+    m_slant4Btn->setFixedSize(30, 30);
+    m_abortPathBtn->setFixedSize(30, 30);
+    m_resumePathBtn->setFixedSize(30, 30);
+    m_confirmAdjustmentBtn->setFixedSize(80, 30);
+
+    movementLayout->addWidget(m_slant1Btn, 1, 1);
+    movementLayout->addWidget(m_upFastBtn, 0, 2);
+    movementLayout->addWidget(m_upSlowBtn, 1, 2);
+    movementLayout->addWidget(m_slant2Btn, 1, 3);
+    movementLayout->addWidget(m_leftFastBtn, 2, 0);
+    movementLayout->addWidget(m_leftSlowBtn, 2, 1);
+    movementLayout->addWidget(m_rightFastBtn, 2, 4);
+    movementLayout->addWidget(m_rightSlowBtn, 2, 3);
+    movementLayout->addWidget(m_slant4Btn, 3, 1);
+    movementLayout->addWidget(m_downFastBtn, 4, 2);
+    movementLayout->addWidget(m_downSlowBtn, 3, 2);
+    movementLayout->addWidget(m_slant3Btn, 3, 3);
+    movementLayout->addWidget(m_zUpFastBtn, 0, 5);
+    movementLayout->addWidget(m_zUpBtn, 1, 5);
+    movementLayout->addWidget(m_zDownBtn, 3, 5);
+    movementLayout->addWidget(m_zDownFastBtn, 4, 5);
+    movementLayout->addWidget(m_abortPathBtn, 5, 0);
+    movementLayout->addWidget(m_resumePathBtn, 5, 1);
+    movementLayout->addWidget(m_confirmAdjustmentBtn, 5, 2);
 
     // Connect movement buttons to slots
-    connect(leftFast, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
-    connect(leftSlow, &QPushButton::clicked, this, &MainWindow::onLeftSlowClicked);
-    connect(rightFast, &QPushButton::clicked, this, &MainWindow::onRightFastClicked);
-    connect(rightSlow, &QPushButton::clicked, this, &MainWindow::onRightSlowClicked);
-    connect(upFast, &QPushButton::clicked, this, &MainWindow::onUpFastClicked);
-    connect(upSlow, &QPushButton::clicked, this, &MainWindow::onUpSlowClicked);
-    connect(downFast, &QPushButton::clicked, this, &MainWindow::onDownFastClicked);
-    connect(downSlow, &QPushButton::clicked, this, &MainWindow::onDownSlowClicked);
-    connect(zUp, &QPushButton::clicked, this, &MainWindow::onZUpClicked);
-    connect(zUpFast, &QPushButton::clicked, this, &MainWindow::onZUpFastClicked);
-    connect(zDown, &QPushButton::clicked, this, &MainWindow::onZDownClicked);
-    connect(zDownFast, &QPushButton::clicked, this, &MainWindow::onZDownFastClicked);
-    connect(slant1, &QPushButton::clicked, this, &MainWindow::onSlant1Clicked);
-    connect(slant2, &QPushButton::clicked, this, &MainWindow::onSlant2Clicked);
-    connect(slant3, &QPushButton::clicked, this, &MainWindow::onSlant3Clicked);
-    connect(slant4, &QPushButton::clicked, this, &MainWindow::onSlant4Clicked);
-	connect(AbortPath, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
-	connect(ResumePath, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
+    connect(m_leftFastBtn, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
+    connect(m_leftSlowBtn, &QPushButton::clicked, this, &MainWindow::onLeftSlowClicked);
+    connect(m_rightFastBtn, &QPushButton::clicked, this, &MainWindow::onRightFastClicked);
+    connect(m_rightSlowBtn, &QPushButton::clicked, this, &MainWindow::onRightSlowClicked);
+    connect(m_upFastBtn, &QPushButton::clicked, this, &MainWindow::onUpFastClicked);
+    connect(m_upSlowBtn, &QPushButton::clicked, this, &MainWindow::onUpSlowClicked);
+    connect(m_downFastBtn, &QPushButton::clicked, this, &MainWindow::onDownFastClicked);
+    connect(m_downSlowBtn, &QPushButton::clicked, this, &MainWindow::onDownSlowClicked);
+    connect(m_zUpBtn, &QPushButton::clicked, this, &MainWindow::onZUpClicked);
+    connect(m_zUpFastBtn, &QPushButton::clicked, this, &MainWindow::onZUpFastClicked);
+    connect(m_zDownBtn, &QPushButton::clicked, this, &MainWindow::onZDownClicked);
+    connect(m_zDownFastBtn, &QPushButton::clicked, this, &MainWindow::onZDownFastClicked);
+    connect(m_slant1Btn, &QPushButton::clicked, this, &MainWindow::onSlant1Clicked);
+    connect(m_slant2Btn, &QPushButton::clicked, this, &MainWindow::onSlant2Clicked);
+    connect(m_slant3Btn, &QPushButton::clicked, this, &MainWindow::onSlant3Clicked);
+    connect(m_slant4Btn, &QPushButton::clicked, this, &MainWindow::onSlant4Clicked);
+    connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
+    //connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
+    connect(m_confirmAdjustmentBtn, &QPushButton::clicked, this, &MainWindow::onConfirmAdjustmentClicked);
 
     QGroupBox* movementBox = new QGroupBox();
     movementBox->setLayout(movementLayout);
 
     return movementBox;
+}
+
+void MainWindow::setMovementControlsEnabled(bool enabled) {
+    m_leftFastBtn->setEnabled(enabled);
+    m_leftSlowBtn->setEnabled(enabled);
+    m_rightFastBtn->setEnabled(enabled);
+    m_rightSlowBtn->setEnabled(enabled);
+    m_upFastBtn->setEnabled(enabled);
+    m_upSlowBtn->setEnabled(enabled);
+    m_downFastBtn->setEnabled(enabled);
+    m_downSlowBtn->setEnabled(enabled);
+    m_zUpBtn->setEnabled(enabled);
+    m_zUpFastBtn->setEnabled(enabled);
+    m_zDownBtn->setEnabled(enabled);
+    m_zDownFastBtn->setEnabled(enabled);
+    m_slant1Btn->setEnabled(enabled);
+    m_slant2Btn->setEnabled(enabled);
+    m_slant3Btn->setEnabled(enabled);
+    m_slant4Btn->setEnabled(enabled);
+    m_goToPositionBtn->setEnabled(enabled);
 }
 
 
@@ -337,26 +371,26 @@ QGroupBox* MainWindow::setupControlUI() {
     m_arducamOp.cameraBtn = new QPushButton("Start Camera");
     QPushButton* captureMacroImg = new QPushButton("Capture Macro Img");
     QPushButton* predictMacroImg = new QPushButton("Predict Macro pos");
-    QPushButton* goToPosition1 = new QPushButton("Go To Position 1");
+    m_goToPositionBtn = new QPushButton("Go To Position 1");
     m_microCam1Op.cameraBtn = new QPushButton("Start Duo Camera");
     QPushButton* captureMicroImg = new QPushButton("Capture Micro Img");
-    QPushButton* predictMicroImg = new QPushButton("Path");
+    m_predictMicroImg = new QPushButton("Path");
 
     controlLayout->addWidget(m_arducamOp.cameraBtn);
     controlLayout->addWidget(captureMacroImg);
     controlLayout->addWidget(predictMacroImg);
-    controlLayout->addWidget(goToPosition1);
+    controlLayout->addWidget(m_goToPositionBtn);
     controlLayout->addWidget(m_microCam1Op.cameraBtn);
     controlLayout->addWidget(captureMicroImg);
-    controlLayout->addWidget(predictMicroImg);
+    controlLayout->addWidget(m_predictMicroImg);
 
     connect(m_arducamOp.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartArducam);
     connect(captureMacroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMacroImg);
     connect(predictMacroImg, &QPushButton::clicked, this, &MainWindow::onPredictMacroImg);
-    connect(goToPosition1, &QPushButton::clicked, this, &MainWindow::onGoToPosition1);
+    connect(m_goToPositionBtn, &QPushButton::clicked, this, &MainWindow::onGoToPosition1);
     connect(m_microCam1Op.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartDuocam);
     connect(captureMicroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMicroImg);
-    connect(predictMicroImg, &QPushButton::clicked, this, &MainWindow::onPredictMicroImg);
+    connect(m_predictMicroImg, &QPushButton::clicked, this, &MainWindow::onPredictMicroImg);
 
     QGroupBox* controlBox = new QGroupBox();
     controlBox->setLayout(controlLayout);
@@ -375,7 +409,10 @@ cv::Mat MainWindow::calculateTransformationMatrix(const std::vector<cv::Point2f>
     // Calculate affine transformation matrix using 3 point pairs
     cv::Mat transformMatrix = cv::getAffineTransform(imagePoints, realPoints);
 
-    LOG_INFO("Transformation matrix calculated successfully", transformMatrix);
+    LOG_INFO("Transformation matrix calculated successfully");
+    std::stringstream ss;
+    ss << "Affine Matrix is: " << transformMatrix;
+    LOG_INFO(ss.str());
 
     return transformMatrix;
 }
@@ -612,6 +649,7 @@ void MainWindow::onCaptureMacroImg() {
         LOG_WARNING("Captured macro image is empty. Not saving.");
     }
     
+    
 }
 
 void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rect>& boxCentroids) {
@@ -643,7 +681,10 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
     m_arducamOp.toggleCamera();
     m_arducamOp.cameraBtn->setText("Restart Arducam");
 
-}
+    if (m_macroImgInference.thrd) {
+        m_macroImgInference.thrd->quit();
+        m_macroImgInference.thrd->wait();
+    }
 
 
 
@@ -784,123 +825,88 @@ void MainWindow::onPredictMicroImg() {
         return;
     }
 
+    if (m_xyzStage.getSerialHandle() == INVALID_HANDLE_VALUE){
+        LOG_WARNING("XYZ Stage not connected. Please connect the stage first.");
+        return;
+	}
+
     LOG_INFO("Starting traversal of detected macro image path...");
-    traverseRealCoordinatePath(m_transformMatrix);
-    ;
+
+    m_traverser = new DetectionTraverser(&m_xyzStage);
+
+    m_traverserThread = new QThread(this);
+    m_traverser->moveToThread(m_traverserThread);
+    m_traverser->setTraversalData(m_macroImgPath, m_transformMatrix);
+
+    // Connect signals from the worker to slots in the main window
+    connect(m_traverserThread, &QThread::started, m_traverser, &DetectionTraverser::process);
+    connect(m_traverser, &DetectionTraverser::traversalStarted, this, &MainWindow::onTraversalStarted);
+    connect(m_traverser, &DetectionTraverser::waitingForUserAdjustment, this, &MainWindow::onWaitingForUser);
+    connect(m_traverser, &DetectionTraverser::traversalFinished, this, &MainWindow::onTraversalFinished);
+
+    // For cleanup
+    connect(m_traverserThread, &QThread::finished, m_traverserThread, &QObject::deleteLater);
+
+    m_traverserThread->start();
 }
 
-
-
-
-
-
-// Method to convert image coordinates to real coordinates using transformation matrix
-std::vector<cv::Point2f> MainWindow::convertImageToRealCoordinates(const std::vector<cv::Rect>& imageBoundingBoxes,
-    const cv::Mat& transformMatrix) {
-    std::vector<cv::Point2f> realCoordinates;
-
-    if (transformMatrix.empty()) {
-        LOG_WARNING("Transformation matrix is empty. Cannot convert coordinates.");
-        return realCoordinates;
-    }
-
-    // Convert each bounding box center to real coordinates
-    for (const auto& box : imageBoundingBoxes) {
-        // Get center point of bounding box
-        cv::Point2f imageCenter(box.x + box.width / 2.0f, box.y + box.height / 2.0f);
-
-        // Apply affine transformation
-        std::vector<cv::Point2f> imagePoints = { imageCenter };
-        std::vector<cv::Point2f> transformedPoints;
-
-        cv::transform(imagePoints, transformedPoints, transformMatrix);
-
-        realCoordinates.push_back(transformedPoints[0]);
-
-        LOG_INFO("Converted image point (" << imageCenter.x << ", " << imageCenter.y <<
-            ") to real coordinate (" << transformedPoints[0].x << ", " << transformedPoints[0].y << ")");
-    }
-
-    return realCoordinates;
+void MainWindow::onTraversalStarted() {
+    LOG_INFO("UI received traversalStarted signal. Disabling controls.");
+    setMovementControlsEnabled(false);
+    m_goToPositionBtn->setEnabled(false);
+    m_confirmAdjustmentBtn->setEnabled(false);
+    // Also disable the "Path" button to prevent starting twice
+	m_predictMicroImg->setEnabled(false);
 }
 
-// Convenience method to convert m_macroImgPath to real coordinates
-std::vector<cv::Point2f> MainWindow::convertMacroImagePathToReal(const cv::Mat& transformMatrix) {
-    std::stringstream ss;
-    ss << "Affine Matrix is: " << transformMatrix;
-    LOG_INFO(ss.str());
-    return convertImageToRealCoordinates(m_macroImgPath, transformMatrix);
+void MainWindow::onWaitingForUser() {
+    LOG_INFO("UI received waitingForUserAdjustment signal. Enabling adjustment controls.");
+    // NOW enable controls for fine-tuning
+    setMovementControlsEnabled(true);
+    m_confirmAdjustmentBtn->setEnabled(true);
 }
 
-// Method to traverse the real coordinate path using move commands
-void MainWindow::traverseRealCoordinatePath(const cv::Mat& transformMatrix) {
-    if (transformMatrix.empty()) {
-        LOG_WARNING("Transformation matrix is empty. Cannot traverse path.");
-        return;
-    }
+void MainWindow::onConfirmAdjustmentClicked() {
+    LOG_INFO("User confirmed adjustment. Capturing images and proceeding.");
 
-    if (m_macroImgPath.empty()) {
-        LOG_WARNING("No macro image path detected. Cannot traverse path.");
-        return;
-    }
+    // First, disable controls again so user can't move during capture/next move
+    setMovementControlsEnabled(false);
+    m_confirmAdjustmentBtn->setEnabled(false);
 
-    // Convert image coordinates to real coordinates
-    std::vector<cv::Point2f> realCoordinates = convertMacroImagePathToReal(transformMatrix);
+    // Capture the images
+    onCaptureMicroImg();
 
-    if (realCoordinates.empty()) {
-        LOG_WARNING("No real coordinates calculated. Cannot traverse path.");
-        return;
-    }
-
-    LOG_INFO("Starting traversal of " << realCoordinates.size() << " detected points");
-
-    // Traverse each real coordinate point
-	
-    if (abort) {
-                LOG_INFO("Traversal aborted by user.");
-				return; 
-    }
-
-    for (size_t i = 0; i < realCoordinates.size(); ++i) {
-
-
-        const cv::Point2f& targetPoint = realCoordinates[i];
-        if ( targetPoint.y < 18818) {
-            LOG_WARNING("Target point (" << targetPoint.x << ", " << targetPoint.y << ") is out of bounds. Skipping this point.");
-            continue; // Skip to the next point
-        }
-
-        // Calculate relative movement from current position
-        double deltaX = targetPoint.x - globle_vars.current_x;
-        double deltaY = targetPoint.y - globle_vars.current_y;
-        double deltaZ = 27960 - globle_vars.current_z;  // Use 29657 as constant Z value
-
-        LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size() <<
-            ": (" << targetPoint.x << ", " << targetPoint.y << ", 29657)");
-        LOG_INFO("Delta movement: (" << deltaX << ", " << deltaY << ", " << deltaZ << ")");
-
-        // Execute the move command
-        n_xyzStage.move(deltaX, 0, 0);
-        n_xyzStage.move(0, deltaY, 0);
-        n_xyzStage.move(0, 0, deltaZ);
-
-        // Optional: Add a small delay between movements if needed
-        updatePositionDisplay();
-        QThread::msleep(10000);  // 500ms delay between points
-
-        LOG_INFO("Reached point " << (i + 1) << " at position (" <<
-            globle_vars.current_x << ", " << globle_vars.current_y << ", " << globle_vars.current_z << ")");
-
-
-
-        
-    }
-
-    LOG_INFO("Traversal completed. Visited " << realCoordinates.size() << " points.");
+    // Tell the traverser thread to wake up and continue
+	m_traverser->userConfirmedAdjustment();
 }
 
+void MainWindow::onTraversalFinished(const QString& message) {
+    LOG_INFO("UI received traversalFinished signal: " << message.toStdString());
 
+    // Re-enable all controls
+    setMovementControlsEnabled(true);
+    m_goToPositionBtn->setEnabled(true);
+    m_confirmAdjustmentBtn->setEnabled(false); // Disable until next pause
 
+    // Clean up the thread
+    if (m_traverserThread) {
+        m_traverserThread->quit();
+        m_traverserThread->wait(); // ensure it's finished
+        m_traverserThread = nullptr;
+    }
+
+	m_predictMicroImg->setEnabled(true);
+}
+
+void MainWindow::onAbortPathClicked() {
+    LOG_INFO("Abort button clicked.");
+    if (m_traverser) {
+        // Use invokeMethod for thread safety
+        QMetaObject::invokeMethod(m_traverser, "abortTraversal", Qt::QueuedConnection);
+    }
+    // The onTraversalFinished slot will handle UI cleanup
+    m_predictMicroImg->setEnabled(true);
+}
 
 
 void MainWindow::onGoToPosition1() {  
@@ -1011,10 +1017,6 @@ void MainWindow::onSlant4Clicked() {
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(-10.0* stepValue, 0.0, 0.0);
     m_xyzStage.move(0.0, 10.0* stepValue, 0.0);
-}
-void MainWindow::onAbortPathClicked() {
-    LOG_INFO("Aborted by the User");  
-    this->abort = true;  
 }
 
 void MainWindow::onResumePathClicked() {

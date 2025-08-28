@@ -111,6 +111,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\cameraworker.cpp" />
+    <ClCompile Include="src\detectiontraverser.cpp" />
     <ClCompile Include="src\inferenceworker.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\mainwindow.cpp" />
@@ -126,6 +127,7 @@
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="src\ZoomableGraphicsView.h" />
+    <QtMoc Include="src\detectiontraverser.h" />
     <ClInclude Include="src\XYZStage.h" />
     <QtMoc Include="src\inferenceworker.h" />
     <ClInclude Include="src\utils.h" />

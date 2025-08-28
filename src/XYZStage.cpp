@@ -339,6 +339,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
 XYZStage::XYZStage(const std::string& portName)
     : port(portName), m_stopWorker(false) {
     LOG_INFO("XYZStage initialized to: x=" << position.x << ", y=" << position.y << ", z=" << position.z);
+	m_serialHandle = getSerial();
     // Start the worker thread upon construction
     m_workerThread = std::thread(&XYZStage::worker, this);
 }
@@ -406,5 +407,32 @@ void XYZStage::worker() {
             currentCommand.vy,
             currentCommand.vz,
             direction);
+
+        // Check if a blocking call is waiting and notify it
+        if (m_isWaitingForMoveCompletion.load()) {
+            {
+                std::lock_guard<std::mutex> lock(m_syncMutex);
+                m_isWaitingForMoveCompletion = false; // Reset the flag
+            }
+            m_syncCondition.notify_one(); // Wake up the move_and_wait function
+        }
+    }
+}
+
+
+void XYZStage::move_and_wait(double dx, double dy, double dz, double velocity_x, double velocity_y, double velocity_z) {
+    {
+        std::unique_lock<std::mutex> lock(m_syncMutex);
+
+        // Set the flag indicating that we will wait
+        m_isWaitingForMoveCompletion = true;
+
+        // Queue the command using the normal non-blocking method
+        move(dx, dy, dz, velocity_x, velocity_y, velocity_z);
+
+        // Now, wait until the worker thread signals completion
+        LOG_INFO("move_and_wait: Waiting for move to complete...");
+        m_syncCondition.wait(lock, [this] { return !m_isWaitingForMoveCompletion.load(); });
+        LOG_INFO("move_and_wait: Move completed. Proceeding.");
     }
 }
