@@ -874,8 +874,8 @@ void MainWindow::onConfirmAdjustmentClicked() {
     m_confirmAdjustmentBtn->setEnabled(false);
 
     // Capture the images
-    onCaptureMicroImg();
-
+    //onCaptureMicroImg();
+    //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
 }
