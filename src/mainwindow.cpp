@@ -868,14 +868,18 @@ void MainWindow::onWaitingForUser() {
 }
 
 void MainWindow::onConfirmAdjustmentClicked() {
+
     //LOG_INFO("User confirmed adjustment. Capturing images and proceeding.");
+
 
     // First, disable controls again so user can't move during capture/next move
     setMovementControlsEnabled(false);
     m_confirmAdjustmentBtn->setEnabled(false);
 
     // Capture the images
+
     //onCaptureMicroImg();
+
     //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
