@@ -681,10 +681,7 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
     m_arducamOp.toggleCamera();
     m_arducamOp.cameraBtn->setText("Restart Arducam");
 
-    if (m_macroImgInference.thrd) {
-        m_macroImgInference.thrd->quit();
-        m_macroImgInference.thrd->wait();
-    }
+}
 
 
 
@@ -825,11 +822,6 @@ void MainWindow::onPredictMicroImg() {
         return;
     }
 
-    if (m_xyzStage.getSerialHandle() == INVALID_HANDLE_VALUE){
-        LOG_WARNING("XYZ Stage not connected. Please connect the stage first.");
-        return;
-	}
-
     LOG_INFO("Starting traversal of detected macro image path...");
 
     m_traverser = new DetectionTraverser(&m_xyzStage);
@@ -877,7 +869,8 @@ void MainWindow::onConfirmAdjustmentClicked() {
     onCaptureMicroImg();
     //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
-	m_traverser->userConfirmedAdjustment();
+    // Use invokeMethod to ensure it's called in the context of the other thread
+    QMetaObject::invokeMethod(m_traverser, "userConfirmedAdjustment", Qt::QueuedConnection);
 }
 
 void MainWindow::onTraversalFinished(const QString& message) {

@@ -49,7 +49,6 @@ private:
         double z = 1260.0 / 1000.0;
     };
 
-	HANDLE m_serialHandle;
     Position position;
     std::string port;
     Scale scale;
@@ -92,6 +91,4 @@ public:
 
     // Setter for port
     void setPort(const std::string& newPort) { port = newPort; }
-
-    HANDLE getSerialHandle() { return m_serialHandle; }
 };
