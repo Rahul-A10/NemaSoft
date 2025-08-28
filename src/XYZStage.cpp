@@ -155,20 +155,23 @@ std::string XYZStage::readResponse(HANDLE hSerial, int maxWaitMs) {
 // Private helper method for actual movement
 XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, double vy, double vz, char direction) {
 
-    HANDLE hSerial = getSerial();
-    if (hSerial == INVALID_HANDLE_VALUE) {
+    //HANDLE hSerial = getSerial();
+    if (m_serialHandle == INVALID_HANDLE_VALUE) {
         LOG_CRITICAL("MOVE FAILED - Returning old position");
         return position;
     }
+    
 
     int sign = (direction == 'D') ? -1 : 1;
+//direction = 'A'; // 'A' for absolute movement
+
 
     LOG_INFO("trying to move FROM: x=" << globle_vars.current_x << ", y=" << globle_vars.current_y << ", z=" << globle_vars.current_z);
 
     // Update global variables
-    globle_vars.current_x += (x * sign);
+    /*globle_vars.current_x += (x * sign);
     globle_vars.current_y += (y * sign);
-    globle_vars.current_z += (z * sign);
+    globle_vars.current_z += (z * sign);*/
 
     LOG_INFO("TO: x=" << globle_vars.current_x << ", y=" << globle_vars.current_y << ", z=" << globle_vars.current_z);
 
@@ -181,12 +184,12 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     int vz_units = static_cast<int>(vz * scale.z);
 
     // Update position
-    position.x += x_units * sign;
+    /*position.x += x_units * sign;
     position.y += y_units * sign;
-    position.z += z_units * sign;
-
+    position.z += z_units * sign;*/
     // Create command string based on zero values
     std::string cmd;
+    
 
     if (x_units == 0 && y_units == 0 && z_units == 0) {
         cmd = "0";
@@ -228,9 +231,9 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     }
 
     // Send command and read response
-    if (hSerial != INVALID_HANDLE_VALUE) {
+    if (m_serialHandle != INVALID_HANDLE_VALUE) {
         DWORD bytesWritten;
-        if (!WriteFile(hSerial, cmd.c_str(), static_cast<DWORD>(cmd.length()), &bytesWritten, NULL)) {
+        if (!WriteFile(m_serialHandle, cmd.c_str(), static_cast<DWORD>(cmd.length()), &bytesWritten, NULL)) {
             LOG_CRITICAL("Failed to write to serial port!");
         }
         else {
@@ -261,85 +264,106 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
             }
 
             // Send position query command after move completes
-            char buffer2[256];
-            sprintf_s(buffer2, "/1?aA\r\n");
-            std::string cmd2 = buffer2;
+            getPosition();
+            
+        }
 
-            if (!WriteFile(hSerial, cmd2.c_str(), static_cast<DWORD>(cmd2.length()), &bytesWritten, NULL)) {
-                LOG_CRITICAL("Failed to write position query command!");
-            }
-            else {
-                LOG_INFO("Position query command SENT: " << cmd2);
+        //CloseHandle(hSerial);
+    }
 
-                // Read response from position query (cmd2)
-                std::string response = readResponse(hSerial, 2000);  // Wait up to 2 seconds
+    return position;
+}
+XYZStage::Position XYZStage::getPosition() {
+    //std::lock_guard<std::mutex> lock(m_syncMutex); // Ensure thread safety
+     
+	DWORD bytesWritten;
+    
+    char buffer2[256];
+    sprintf_s(buffer2, "/1?aA\r\n");
+    std::string cmd2 = buffer2;
 
-                if (!response.empty()) {
-                    // Extract clean response - get 3 numbers after backtick
-                    std::string cleanResponse;
-                    size_t backtickPos = response.find('`');
+    if (!WriteFile(m_serialHandle, cmd2.c_str(), static_cast<DWORD>(cmd2.length()), &bytesWritten, NULL)) {
+        LOG_CRITICAL("Failed to write position query command!");
+    }
+    else {
+        LOG_INFO("Position query command SENT: " << cmd2);
 
-                    if (backtickPos != std::string::npos) {
-                        // Extract substring after backtick
-                        std::string positionPart = response.substr(backtickPos + 1);
+        // Read response from position query (cmd2)
+        std::string response = readResponse(m_serialHandle, 2000);  // Wait up to 2 seconds
 
-                        // Extract first 3 comma-separated numbers
-                        std::stringstream ss(positionPart);
-                        std::string token;
-                        int count = 0;
+        if (!response.empty()) {
+            // Extract clean response - get 3 numbers after backtick
+            std::string cleanResponse;
+            size_t backtickPos = response.find('`');
 
-                        while (std::getline(ss, token, ',') && count < 3) {
-                            // Clean token to keep only digits and minus sign
-                            std::string cleanToken;
-                            for (char c : token) {
-                                if (std::isdigit(c) || c == '-') {
-                                    cleanToken += c;
-                                }
-                            }
+            if (backtickPos != std::string::npos) {
+                // Extract substring after backtick
+                std::string positionPart = response.substr(backtickPos + 1);
 
-                            if (!cleanToken.empty()) {
-                                if (count > 0) cleanResponse += ",";
-                                cleanResponse += cleanToken;
-                                count++;
-                            }
-                        }
+                // Extract first 3 comma-separated numbers
+                std::stringstream ss(positionPart);
+                std::string token;
+                int count = 0;
 
-                        if (count == 3) {
-                            LOG_INFO("COM5 Response: " << cleanResponse);
-                            // Parse and extract position values
-                            parsePositionResponse(response);
-                            // Also output to Visual Studio Debug window
-                            std::string debugMsg = "COM5 Response: " + cleanResponse + "\n";
-                            OutputDebugStringA(debugMsg.c_str());
-                        }
-                        else {
-                            LOG_INFO("No response");
-                            OutputDebugStringA("No response\n");
+                while (std::getline(ss, token, ',') && count < 3) {
+                    // Clean token to keep only digits and minus sign
+                    std::string cleanToken;
+                    for (char c : token) {
+                        if (std::isdigit(c) || c == '-') {
+                            cleanToken += c;
                         }
                     }
-                    else {
-                        LOG_INFO("No response");
-                        OutputDebugStringA("No response\n");
+
+                    if (!cleanToken.empty()) {
+                        if (count > 0) cleanResponse += ",";
+                        cleanResponse += cleanToken;
+                        count++;
                     }
+                }
+
+                if (count == 3) {
+                    LOG_INFO("COM5 Response: " << cleanResponse);
+                    // Parse and extract position values
+                    parsePositionResponse(response);
+                    // Also output to Visual Studio Debug window
+                    std::string debugMsg = "COM5 Response: " + cleanResponse + "\n";
+                    OutputDebugStringA(debugMsg.c_str());
+                     
                 }
                 else {
                     LOG_INFO("No response");
                     OutputDebugStringA("No response\n");
                 }
             }
+            else {
+                LOG_INFO("No response");
+                OutputDebugStringA("No response\n");
+            }
         }
-
-        CloseHandle(hSerial);
+        else {
+            LOG_INFO("No response");
+            OutputDebugStringA("No response\n");
+        }
     }
-
-    return position;
-}
-
+    return position; }
 
 XYZStage::XYZStage(const std::string& portName)
     : port(portName), m_stopWorker(false) {
     LOG_INFO("XYZStage initialized to: x=" << position.x << ", y=" << position.y << ", z=" << position.z);
 	m_serialHandle = getSerial();
+    if (m_serialHandle != INVALID_HANDLE_VALUE) {
+        LOG_INFO("Querying initial position from stage...");
+
+        // ?? Avoid deadlock by using a temporary call without locking
+        {
+            // Make sure no other thread can contend here because
+            // the worker thread isn’t started yet.
+            getPosition();
+        }
+    }
+    else {
+        LOG_CRITICAL("Serial connection failed, cannot query initial position.");
+    }
     // Start the worker thread upon construction
     m_workerThread = std::thread(&XYZStage::worker, this);
 }
