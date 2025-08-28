@@ -654,30 +654,30 @@ void MainWindow::onCaptureMacroImg() {
 
 void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rect>& boxCentroids) {
 
-	// TODO: decide how to handle the inference result - directly update here or pass to camera worker?
+    // TODO: decide how to handle the inference result - directly update here or pass to camera worker?
     //m_arducamOp.camWorker->clearCapturedFrame(); // remove the captured frame
     //m_arducamOp.camWorker->setCapturedFrame(frame); // add the frame with detection rectangles
     //m_arducamOp.camWorker->start();
 
-	// TODO: cameraworker::stop exits from the process loop, so camera thrd is no longer active
-	// updating the frame as above does not show the rendered img as thrd is is not running
-	// might need to add wait method to CameraWorker to actually wait and stop can be used to exit thrd?
+    // TODO: cameraworker::stop exits from the process loop, so camera thrd is no longer active
+    // updating the frame as above does not show the rendered img as thrd is is not running
+    // might need to add wait method to CameraWorker to actually wait and stop can be used to exit thrd?
 
-	// save the output frame to a file
+    // save the output frame to a file
     cv::imwrite("output.jpg", frame);
 
-	LOG_INFO("Showing inference result");
+    LOG_INFO("Showing inference result");
 
-	cv::Mat resized;
+    cv::Mat resized;
     cv::resize(frame, resized, cv::Size(3840, 2160));
     QImage qImage(resized.data, resized.cols, resized.rows, resized.step, QImage::Format_RGB888);
     updateFrame(qImage.copy(), ARDUCAM);
-	// copy the boxCentroids to use them later to change the color of detected boxes once processed
-	m_macroImgPath.clear();
-	m_macroImgPath = boxCentroids;
+    // copy the boxCentroids to use them later to change the color of detected boxes once processed
+    m_macroImgPath.clear();
+    m_macroImgPath = boxCentroids;
 
-	// Clean up inference worker and thread
-	m_macroImgInference.free();
+    // Clean up inference worker and thread
+    m_macroImgInference.free();
     m_arducamOp.toggleCamera();
     m_arducamOp.cameraBtn->setText("Restart Arducam");
 
@@ -685,6 +685,7 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
         m_macroImgInference.thrd->quit();
         m_macroImgInference.thrd->wait();
     }
+}
 
 
 
@@ -815,22 +816,22 @@ void MainWindow::onCaptureMicroImg() {
 }
 void MainWindow::onPredictMicroImg() {
     if (m_transformMatrix.empty()) {
-        LOG_WARNING("Transformation matrix not set. Please calculate transformation matrix first.");
-        LOG_INFO("Use calculateTransformationMatrix() with 3 corresponding image and real coordinate points.");
+        //LOG_WARNING("Transformation matrix not set. Please calculate transformation matrix first.");
+        //LOG_INFO("Use calculateTransformationMatrix() with 3 corresponding image and real coordinate points.");
         return;
     }
 
     if (m_macroImgPath.empty()) {
-        LOG_WARNING("No detected objects in macro image path. Please capture and predict macro image first.");
+        //LOG_WARNING("No detected objects in macro image path. Please capture and predict macro image first.");
         return;
     }
 
-    if (m_xyzStage.getSerialHandle() == INVALID_HANDLE_VALUE){
+    /*if (m_xyzStage.getSerialHandle() == INVALID_HANDLE_VALUE){
         LOG_WARNING("XYZ Stage not connected. Please connect the stage first.");
         return;
-	}
+	}*/
 
-    LOG_INFO("Starting traversal of detected macro image path...");
+    //LOG_INFO("Starting traversal of detected macro image path...");
 
     m_traverser = new DetectionTraverser(&m_xyzStage);
 
@@ -851,7 +852,7 @@ void MainWindow::onPredictMicroImg() {
 }
 
 void MainWindow::onTraversalStarted() {
-    LOG_INFO("UI received traversalStarted signal. Disabling controls.");
+    //LOG_INFO("UI received traversalStarted signal. Disabling controls.");
     setMovementControlsEnabled(false);
     m_goToPositionBtn->setEnabled(false);
     m_confirmAdjustmentBtn->setEnabled(false);
@@ -860,21 +861,25 @@ void MainWindow::onTraversalStarted() {
 }
 
 void MainWindow::onWaitingForUser() {
-    LOG_INFO("UI received waitingForUserAdjustment signal. Enabling adjustment controls.");
+    //LOG_INFO("UI received waitingForUserAdjustment signal. Enabling adjustment controls.");
     // NOW enable controls for fine-tuning
     setMovementControlsEnabled(true);
     m_confirmAdjustmentBtn->setEnabled(true);
 }
 
 void MainWindow::onConfirmAdjustmentClicked() {
-    LOG_INFO("User confirmed adjustment. Capturing images and proceeding.");
-    
+
+    //LOG_INFO("User confirmed adjustment. Capturing images and proceeding.");
+
+
     // First, disable controls again so user can't move during capture/next move
     setMovementControlsEnabled(false);
     m_confirmAdjustmentBtn->setEnabled(false);
 
     // Capture the images
-    onCaptureMicroImg();
+
+    //onCaptureMicroImg();
+
     //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
