@@ -155,20 +155,23 @@ std::string XYZStage::readResponse(HANDLE hSerial, int maxWaitMs) {
 // Private helper method for actual movement
 XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, double vy, double vz, char direction) {
 
-    HANDLE hSerial = getSerial();
-    if (hSerial == INVALID_HANDLE_VALUE) {
+    //HANDLE hSerial = getSerial();
+    if (m_serialHandle == INVALID_HANDLE_VALUE) {
         LOG_CRITICAL("MOVE FAILED - Returning old position");
         return position;
     }
+    
 
     int sign = (direction == 'D') ? -1 : 1;
+//direction = 'A'; // 'A' for absolute movement
+
 
     LOG_INFO("trying to move FROM: x=" << globle_vars.current_x << ", y=" << globle_vars.current_y << ", z=" << globle_vars.current_z);
 
     // Update global variables
-    globle_vars.current_x += (x * sign);
+    /*globle_vars.current_x += (x * sign);
     globle_vars.current_y += (y * sign);
-    globle_vars.current_z += (z * sign);
+    globle_vars.current_z += (z * sign);*/
 
     LOG_INFO("TO: x=" << globle_vars.current_x << ", y=" << globle_vars.current_y << ", z=" << globle_vars.current_z);
 
@@ -181,12 +184,12 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     int vz_units = static_cast<int>(vz * scale.z);
 
     // Update position
-    position.x += x_units * sign;
+    /*position.x += x_units * sign;
     position.y += y_units * sign;
-    position.z += z_units * sign;
-
+    position.z += z_units * sign;*/
     // Create command string based on zero values
     std::string cmd;
+    
 
     if (x_units == 0 && y_units == 0 && z_units == 0) {
         cmd = "0";
@@ -228,9 +231,9 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     }
 
     // Send command and read response
-    if (hSerial != INVALID_HANDLE_VALUE) {
+    if (m_serialHandle != INVALID_HANDLE_VALUE) {
         DWORD bytesWritten;
-        if (!WriteFile(hSerial, cmd.c_str(), static_cast<DWORD>(cmd.length()), &bytesWritten, NULL)) {
+        if (!WriteFile(m_serialHandle, cmd.c_str(), static_cast<DWORD>(cmd.length()), &bytesWritten, NULL)) {
             LOG_CRITICAL("Failed to write to serial port!");
         }
         else {
@@ -265,29 +268,28 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
             
         }
 
-        CloseHandle(hSerial);
+        //CloseHandle(hSerial);
     }
 
     return position;
 }
 XYZStage::Position XYZStage::getPosition() {
-    std::lock_guard<std::mutex> lock(m_syncMutex); // Ensure thread safety
+    //std::lock_guard<std::mutex> lock(m_syncMutex); // Ensure thread safety
      
 	DWORD bytesWritten;
-    HANDLE hSerial = getSerial();
     
     char buffer2[256];
     sprintf_s(buffer2, "/1?aA\r\n");
     std::string cmd2 = buffer2;
 
-    if (!WriteFile(hSerial, cmd2.c_str(), static_cast<DWORD>(cmd2.length()), &bytesWritten, NULL)) {
+    if (!WriteFile(m_serialHandle, cmd2.c_str(), static_cast<DWORD>(cmd2.length()), &bytesWritten, NULL)) {
         LOG_CRITICAL("Failed to write position query command!");
     }
     else {
         LOG_INFO("Position query command SENT: " << cmd2);
 
         // Read response from position query (cmd2)
-        std::string response = readResponse(hSerial, 2000);  // Wait up to 2 seconds
+        std::string response = readResponse(m_serialHandle, 2000);  // Wait up to 2 seconds
 
         if (!response.empty()) {
             // Extract clean response - get 3 numbers after backtick
@@ -326,6 +328,7 @@ XYZStage::Position XYZStage::getPosition() {
                     // Also output to Visual Studio Debug window
                     std::string debugMsg = "COM5 Response: " + cleanResponse + "\n";
                     OutputDebugStringA(debugMsg.c_str());
+                     
                 }
                 else {
                     LOG_INFO("No response");
