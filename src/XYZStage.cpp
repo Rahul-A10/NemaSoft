@@ -339,6 +339,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
 XYZStage::XYZStage(const std::string& portName)
     : port(portName), m_stopWorker(false) {
     LOG_INFO("XYZStage initialized to: x=" << position.x << ", y=" << position.y << ", z=" << position.z);
+	m_serialHandle = getSerial();
     // Start the worker thread upon construction
     m_workerThread = std::thread(&XYZStage::worker, this);
 }
