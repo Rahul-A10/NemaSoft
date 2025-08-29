@@ -26,6 +26,7 @@
 #include <opencv2/imgproc.hpp>
 
 
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
 
@@ -780,6 +781,7 @@ void MainWindow::onCaptureMicroImg() {
         QString filePath1 = folderPath1 + "/" + timestamp + "_cam1.png";
         cv::imwrite(filePath1.toStdString(), m_currentMicroImg1);
         LOG_INFO("MicroCam1 image saved to: " + filePath1.toStdString());
+		
     }
     else {
         LOG_WARNING("MicroCam1 captured image is empty. Not saving.");
@@ -810,6 +812,8 @@ void MainWindow::onCaptureMicroImg() {
         LOG_WARNING("MicroCam2 captured image is empty. Not saving.");
     }
 
+
+    onStartDuocam(); // reset the micro cams after capturing the images
 
 
 
