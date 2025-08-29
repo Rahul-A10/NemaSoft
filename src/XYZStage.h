@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-
 #include <queue>
 #include <mutex>
 #include <condition_variable>
