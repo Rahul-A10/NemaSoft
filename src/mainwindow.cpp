@@ -242,9 +242,10 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_abortPathBtn = new QPushButton("⏻");
     m_resumePathBtn = new QPushButton("▶");
     m_resumePathBtn->hide();
-
     m_confirmAdjustmentBtn = new QPushButton("✔");
     m_confirmAdjustmentBtn->setEnabled(false);
+	m_homeBtn = new QPushButton("🏠");
+	
 
     m_leftFastBtn->setFixedSize(30, 30);
     m_leftSlowBtn->setFixedSize(30, 30);
@@ -265,6 +266,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_abortPathBtn->setFixedSize(30, 30);
     m_resumePathBtn->setFixedSize(30, 30);
     m_confirmAdjustmentBtn->setFixedSize(30, 30);
+    m_homeBtn->setFixedSize(30, 30);
 
     movementLayout->addWidget(m_slant1Btn, 1, 1);
     movementLayout->addWidget(m_upFastBtn, 0, 2);
@@ -285,6 +287,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     movementLayout->addWidget(m_abortPathBtn, 5, 0);
     movementLayout->addWidget(m_resumePathBtn, 5, 1);
     movementLayout->addWidget(m_confirmAdjustmentBtn, 5, 2);
+	movementLayout->addWidget(m_homeBtn, 5, 3);
 
     // Connect movement buttons to slots
     connect(m_leftFastBtn, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
@@ -306,6 +309,8 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
     //connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
     connect(m_confirmAdjustmentBtn, &QPushButton::clicked, this, &MainWindow::onConfirmAdjustmentClicked);
+	connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onHomeClicked);       
+    
 
     QGroupBox* movementBox = new QGroupBox();
     movementBox->setLayout(movementLayout);
@@ -341,8 +346,8 @@ QGroupBox* MainWindow::setupPositionUI() {
     m_zLabel = new QLabel(QString("Z: %1").arg(globle_vars.current_z));
 
     QLabel* newPosLabel = new QLabel("New Position 1");
-    m_x1 = new QLineEdit("59079");
-    m_y1 = new QLineEdit("161148");
+    m_x1 = new QLineEdit("45090");
+    m_y1 = new QLineEdit("126091");
     m_z1 = new QLineEdit("-960");
     m_stepEdit = new QLineEdit("100");
 
@@ -887,6 +892,10 @@ void MainWindow::onConfirmAdjustmentClicked() {
     //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
+}
+
+void MainWindow::onHomeClicked() {
+    m_xyzStage.home();
 }
 
 void MainWindow::onTraversalFinished(const QString& message) {
