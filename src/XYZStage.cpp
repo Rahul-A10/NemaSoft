@@ -242,30 +242,10 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
         cmd = "0";
     }
     else if (x_units == 0 && y_units == 0) {
-        /*char buffer[256];
-        sprintf_s(buffer, "/1V,,%d%c,,%dR\r\n", vz_units, direction, z_units);
-        cmd = buffer;*/
         char buffer[256];
-        sprintf_s(buffer, "/1aM1f1aM2f1aM3f1R\r\n");
-        std::string cmd = buffer;
-        LOG_INFO("Home command SENT: " << cmd);
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-        sprintf_s(buffer, "/1aM1N1Z10000R\r\n");
+        sprintf_s(buffer, "/1V,,%d%c,,%dR\r\n", vz_units, direction, z_units);
         cmd = buffer;
-        LOG_INFO("Home command SENT: " << cmd);
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-        sprintf_s(buffer, "/1aM2N1Z10000R\r\n");
-        cmd = buffer;
-        LOG_INFO("Home command SENT: " << cmd);
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-        sprintf_s(buffer, "/1aM3N1Z10000R\r\n");
-        cmd = buffer;
-        LOG_INFO("Home command SENT: " << cmd);
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-        sprintf_s(buffer, "/1z0,0,0R\r\n");
-        cmd = buffer;
-
-        LOG_INFO("Home command SENT: " << cmd);
+        
     }
     else if (x_units == 0 && z_units == 0) {
         char buffer[256];
