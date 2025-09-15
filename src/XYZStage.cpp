@@ -154,23 +154,33 @@ std::string XYZStage::readResponse(HANDLE hSerial, int maxWaitMs) {
 
 // Private helper method for actual movement
 XYZStage::Position XYZStage::_home() {
+	HANDLE hSerial = getSerial();
     if (m_serialHandle == INVALID_HANDLE_VALUE) {
         LOG_CRITICAL("MOVE FAILED - Returning old position");
         return position;
     }
 
     else {
-        DWORD bytesWritten;
+        //DWORD bytesWritten;
         char buffer[256];
-        sprintf_s(buffer, " / 1V,,10000P,,1000R\r\n");
+        sprintf_s(buffer, "/1aM1f1aM2f1aM3f1R\r\n");
         std::string cmd = buffer;
-        /*std::this_thread::sleep_for(std::chrono::seconds(10));
-        sprintf_s(buffer, "/1aM1Y10000R\r\n");
-        std::string cmd2 = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
         std::this_thread::sleep_for(std::chrono::seconds(10));
-        sprintf_s(buffer, "/1aM1X10000R\r\n");
-        std::string cmd3 = buffer;
-        std::this_thread::sleep_for(std::chrono::seconds(10));*/
+        sprintf_s(buffer, "/1aM1N1Z10000R\r\n");
+        cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1aM2N1Z10000R\r\n");
+        cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1aM3N1Z10000R\r\n");
+        cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1z0,0,0R\r\n");
+        cmd = buffer;
 
         LOG_INFO("Home command SENT: " << cmd);
             // Wait for homing to complete - this is a guess, adjust as needed
@@ -186,7 +196,7 @@ XYZStage::Position XYZStage::_home() {
 }
 XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, double vy, double vz, char direction) {
 
-    //HANDLE hSerial = getSerial();
+    HANDLE hSerial = getSerial();
     if (m_serialHandle == INVALID_HANDLE_VALUE) {
         LOG_CRITICAL("MOVE FAILED - Returning old position");
         return position;
@@ -232,9 +242,30 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
         cmd = "0";
     }
     else if (x_units == 0 && y_units == 0) {
-        char buffer[256];
+        /*char buffer[256];
         sprintf_s(buffer, "/1V,,%d%c,,%dR\r\n", vz_units, direction, z_units);
+        cmd = buffer;*/
+        char buffer[256];
+        sprintf_s(buffer, "/1aM1f1aM2f1aM3f1R\r\n");
+        std::string cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1aM1N1Z10000R\r\n");
         cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1aM2N1Z10000R\r\n");
+        cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1aM3N1Z10000R\r\n");
+        cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1z0,0,0R\r\n");
+        cmd = buffer;
+
+        LOG_INFO("Home command SENT: " << cmd);
     }
     else if (x_units == 0 && z_units == 0) {
         char buffer[256];
@@ -292,6 +323,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
                 if (vz_units > 1) {
                     temp_time = std::abs(static_cast<double>(z_units) / (vz_units - 1));
                     if (temp_time > sleep_time) sleep_time = temp_time;
+                    sleep_time += 0.5;
                 }
 
                 sleep_time += 0.5; // Add 0.5 seconds buffer
@@ -436,11 +468,11 @@ void XYZStage::move(double dx, double dy, double dz, double velocity_x, double v
 
 void XYZStage::home() {
     {
-        std::lock_guard<std::mutex> lock(m_queueMutex);
+        //std::lock_guard<std::mutex> lock(m_queueMutex);
         _home();
         LOG_INFO("Queued home command and notifying the worker");
     }
-    m_condition.notify_one();
+    //m_condition.notify_one();
 }
 
 // This function runs in a separate thread, processing commands from the queue.
