@@ -27,6 +27,7 @@
 
 
 
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
 
@@ -346,10 +347,10 @@ QGroupBox* MainWindow::setupPositionUI() {
     m_zLabel = new QLabel(QString("Z: %1").arg(globle_vars.current_z));
 
     QLabel* newPosLabel = new QLabel("New Position 1");
-    m_x1 = new QLineEdit("45090");
-    m_y1 = new QLineEdit("126091");
-    m_z1 = new QLineEdit("-960");
-    m_stepEdit = new QLineEdit("100");
+    m_x1 = new QLineEdit("59852");
+    m_y1 = new QLineEdit("142500");
+    m_z1 = new QLineEdit("0");
+    m_stepEdit = new QLineEdit("400");
 
     QVBoxLayout* positionLayout = new QVBoxLayout();
     positionLayout->addWidget(currentLabel);
@@ -582,7 +583,7 @@ void MainWindow::onStartDuocam() {
     }
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(1, 1, 1280, 720, 20);
+    m_microCam1Op.camWorker = new CameraWorker(1, 1, 2720, 1536, 15);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(), (float)m_microCam1View->height() / m_microCam1Op.camWorker->getFrameHeight());
@@ -596,7 +597,7 @@ void MainWindow::onStartDuocam() {
 
 
     m_microCam2Op.thrd = new QThread(this);
-    m_microCam2Op.camWorker = new CameraWorker(3, 2, 1280, 720, 20);
+    m_microCam2Op.camWorker = new CameraWorker(3, 2, 2720,1536, 15);
     m_microCam2Op.camWorker->moveToThread(m_microCam2Op.thrd);
 
 	m_microCam2View->scale((float)m_microCam2View->width() / m_microCam2Op.camWorker->getFrameWidth(), (float)m_microCam2View->height() / m_microCam2Op.camWorker->getFrameHeight());
@@ -698,15 +699,15 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(1651 , 1195),   // Replace with actual image coordinates // i
-        cv::Point2f(1878, 1094),   // from your calibration process// center
-        cv::Point2f(2159, 1241)//0.1
+        cv::Point2f(1445 , 1198),   // Replace with actual image coordinates // i
+        cv::Point2f(1763, 1115),   // from your calibration process// center
+        cv::Point2f(1865, 881)//0.1
     };
 
     std::vector<cv::Point2f> realPoints = {
-        cv::Point2f(56730, 27795), // Replace with actual real world coordinates
-        cv::Point2f(62000, 25602), // corresponding to the image points above
-        cv::Point2f(68534, 28840)
+        cv::Point2f(53272, 9943), // Replace with actual real world coordinates
+        cv::Point2f(60295, 8102), // corresponding to the image points above
+        cv::Point2f(62750, 2829)
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
@@ -772,9 +773,8 @@ void MainWindow::onCaptureMicroImg() {
         return;
     }
     m_microCam1Op.camWorker->setCaptureImg(true);
-    QThread::msleep(30);
+    QThread::msleep(50);
     m_currentMicroImg1 = m_microCam1Op.camWorker->getCaturedFrame().clone();
-
     // Save MicroCam1 image
     if (!m_currentMicroImg1.empty()) {
         QString folderPath1 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img1");
@@ -798,9 +798,8 @@ void MainWindow::onCaptureMicroImg() {
         return;
     }
     m_microCam2Op.camWorker->setCaptureImg(true);
-    QThread::msleep(30);
+    QThread::msleep(50);
     m_currentMicroImg2 = m_microCam2Op.camWorker->getCaturedFrame().clone();
-
     // Save MicroCam2 image
     if (!m_currentMicroImg2.empty()) {
         QString folderPath2 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img2");
@@ -817,8 +816,11 @@ void MainWindow::onCaptureMicroImg() {
         LOG_WARNING("MicroCam2 captured image is empty. Not saving.");
     }
 
-
+    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(2000))); // wait for 300 ms to ensure images are saved properly before restarting the cams
     onStartDuocam(); // reset the micro cams after capturing the images
+    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(3000))); // wait for 300 ms to ensure images are saved properly before restarting the cams
+	m_microCam1Op.cameraBtn->clicked(); // to update the button text to "Start Duo Cam"
+
 
 
 
