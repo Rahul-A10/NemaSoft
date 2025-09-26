@@ -215,14 +215,14 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     int boundz = globle_vars.current_z + (z * sign);
 
 
-    /*if (boundx < globle_vars.min_x || boundy < globle_vars.min_y || boundz < globle_vars.min_z) {
+    if (boundx < globle_vars.min_x || boundy < globle_vars.min_y || boundz < globle_vars.min_z) {
         LOG_CRITICAL("MOVE FAILED - Negative position out of bounds");
         return position;
 	}
     else if (boundx > globle_vars.max_x || boundy > globle_vars.max_y || boundz > globle_vars.max_z) {
         LOG_CRITICAL("MOVE FAILED - Position out of bounds");
         return position;
-    }*/
+    }
 
     //LOG_INFO("TO: x=" << globle_vars.current_x << ", y=" << globle_vars.current_y << ", z=" << globle_vars.current_z);
 

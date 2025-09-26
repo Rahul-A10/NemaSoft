@@ -20,10 +20,10 @@ struct GlobalVars {
     double current_z = 0.0;
     int max_x = 100000;
 	int max_y = 150000;  
-    int max_z = 16000;
+    int max_z = 39000;
     int min_x = 0;
     int min_y = 0;
-    int min_z = -16001;
+    int min_z = 0;
 	bool is_moving = false;
 };
 

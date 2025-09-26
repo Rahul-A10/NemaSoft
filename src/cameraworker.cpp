@@ -100,7 +100,7 @@ void CameraWorker::process() {
             }
 
             //cv::flip(frame, frame, 1);
-            cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+            //cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
 
             if (getCaptureImg() || m_cameraIndex == IMG) {
                 LOG_INFO("Captured frame");
@@ -111,7 +111,7 @@ void CameraWorker::process() {
             /*if (frame.cols > 1280 || frame.rows > 720)
                 cv::resize(frame, frame, cv::Size(1280, 720));*/
 
-            QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_RGB888);
+            QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_BGR888);
             emit frameReady(qImage.copy(), m_cameraType);
 
             QThread::msleep(50);
