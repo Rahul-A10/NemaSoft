@@ -26,6 +26,8 @@
 #include <opencv2/imgproc.hpp>
 
 
+
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
 
@@ -241,9 +243,10 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_abortPathBtn = new QPushButton("⏻");
     m_resumePathBtn = new QPushButton("▶");
     m_resumePathBtn->hide();
-
     m_confirmAdjustmentBtn = new QPushButton("✔");
     m_confirmAdjustmentBtn->setEnabled(false);
+	m_homeBtn = new QPushButton("🏠");
+	
 
     m_leftFastBtn->setFixedSize(30, 30);
     m_leftSlowBtn->setFixedSize(30, 30);
@@ -264,6 +267,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_abortPathBtn->setFixedSize(30, 30);
     m_resumePathBtn->setFixedSize(30, 30);
     m_confirmAdjustmentBtn->setFixedSize(30, 30);
+    m_homeBtn->setFixedSize(30, 30);
 
     movementLayout->addWidget(m_slant1Btn, 1, 1);
     movementLayout->addWidget(m_upFastBtn, 0, 2);
@@ -284,6 +288,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     movementLayout->addWidget(m_abortPathBtn, 5, 0);
     movementLayout->addWidget(m_resumePathBtn, 5, 1);
     movementLayout->addWidget(m_confirmAdjustmentBtn, 5, 2);
+	movementLayout->addWidget(m_homeBtn, 5, 3);
 
     // Connect movement buttons to slots
     connect(m_leftFastBtn, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
@@ -305,6 +310,8 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
     //connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
     connect(m_confirmAdjustmentBtn, &QPushButton::clicked, this, &MainWindow::onConfirmAdjustmentClicked);
+	connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onHomeClicked);       
+    
 
     QGroupBox* movementBox = new QGroupBox();
     movementBox->setLayout(movementLayout);
@@ -340,10 +347,10 @@ QGroupBox* MainWindow::setupPositionUI() {
     m_zLabel = new QLabel(QString("Z: %1").arg(globle_vars.current_z));
 
     QLabel* newPosLabel = new QLabel("New Position 1");
-    m_x1 = new QLineEdit("59079");
-    m_y1 = new QLineEdit("161148");
-    m_z1 = new QLineEdit("-960");
-    m_stepEdit = new QLineEdit("100");
+    m_x1 = new QLineEdit("59852");
+    m_y1 = new QLineEdit("142500");
+    m_z1 = new QLineEdit("0");
+    m_stepEdit = new QLineEdit("400");
 
     QVBoxLayout* positionLayout = new QVBoxLayout();
     positionLayout->addWidget(currentLabel);
@@ -540,7 +547,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(IMG, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -576,7 +583,7 @@ void MainWindow::onStartDuocam() {
     }
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(1, 1, 1280, 720, 20);
+    m_microCam1Op.camWorker = new CameraWorker(1, 1, 2720, 1536, 15);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(), (float)m_microCam1View->height() / m_microCam1Op.camWorker->getFrameHeight());
@@ -590,7 +597,7 @@ void MainWindow::onStartDuocam() {
 
 
     m_microCam2Op.thrd = new QThread(this);
-    m_microCam2Op.camWorker = new CameraWorker(3, 2, 1280, 720, 20);
+    m_microCam2Op.camWorker = new CameraWorker(3, 2, 2720,1536, 15);
     m_microCam2Op.camWorker->moveToThread(m_microCam2Op.thrd);
 
 	m_microCam2View->scale((float)m_microCam2View->width() / m_microCam2Op.camWorker->getFrameWidth(), (float)m_microCam2View->height() / m_microCam2Op.camWorker->getFrameHeight());
@@ -692,15 +699,15 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(1651 , 1195),   // Replace with actual image coordinates // i
-        cv::Point2f(1878, 1094),   // from your calibration process// center
-        cv::Point2f(2159, 1241)//0.1
+        cv::Point2f(1445 , 1198),   // Replace with actual image coordinates // i
+        cv::Point2f(1763, 1115),   // from your calibration process// center
+        cv::Point2f(1865, 881)//0.1
     };
 
     std::vector<cv::Point2f> realPoints = {
-        cv::Point2f(56730, 27795), // Replace with actual real world coordinates
-        cv::Point2f(62000, 25602), // corresponding to the image points above
-        cv::Point2f(68534, 28840)
+        cv::Point2f(53272, 9943), // Replace with actual real world coordinates
+        cv::Point2f(60295, 8102), // corresponding to the image points above
+        cv::Point2f(62750, 2829)
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
@@ -766,9 +773,8 @@ void MainWindow::onCaptureMicroImg() {
         return;
     }
     m_microCam1Op.camWorker->setCaptureImg(true);
-    QThread::msleep(30);
+    QThread::msleep(50);
     m_currentMicroImg1 = m_microCam1Op.camWorker->getCaturedFrame().clone();
-
     // Save MicroCam1 image
     if (!m_currentMicroImg1.empty()) {
         QString folderPath1 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img1");
@@ -780,6 +786,7 @@ void MainWindow::onCaptureMicroImg() {
         QString filePath1 = folderPath1 + "/" + timestamp + "_cam1.png";
         cv::imwrite(filePath1.toStdString(), m_currentMicroImg1);
         LOG_INFO("MicroCam1 image saved to: " + filePath1.toStdString());
+		
     }
     else {
         LOG_WARNING("MicroCam1 captured image is empty. Not saving.");
@@ -791,9 +798,8 @@ void MainWindow::onCaptureMicroImg() {
         return;
     }
     m_microCam2Op.camWorker->setCaptureImg(true);
-    QThread::msleep(30);
+    QThread::msleep(50);
     m_currentMicroImg2 = m_microCam2Op.camWorker->getCaturedFrame().clone();
-
     // Save MicroCam2 image
     if (!m_currentMicroImg2.empty()) {
         QString folderPath2 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img2");
@@ -809,6 +815,11 @@ void MainWindow::onCaptureMicroImg() {
     else {
         LOG_WARNING("MicroCam2 captured image is empty. Not saving.");
     }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(2000))); // wait for 300 ms to ensure images are saved properly before restarting the cams
+    onStartDuocam(); // reset the micro cams after capturing the images
+    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(3000))); // wait for 300 ms to ensure images are saved properly before restarting the cams
+	m_microCam1Op.cameraBtn->clicked(); // to update the button text to "Start Duo Cam"
 
 
 
@@ -883,6 +894,10 @@ void MainWindow::onConfirmAdjustmentClicked() {
     //LOG_INFO("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
+}
+
+void MainWindow::onHomeClicked() {
+    m_xyzStage.home();
 }
 
 void MainWindow::onTraversalFinished(const QString& message) {

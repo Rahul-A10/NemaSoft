@@ -108,7 +108,7 @@ public:
     void onWaitingForUser();
     void onConfirmAdjustmentClicked();
     void onTraversalFinished(const QString& message);
-
+	void onHomeClicked();
 private:
     // Transformation methods
     cv::Mat calculateTransformationMatrix(const std::vector<cv::Point2f>& imagePoints,
@@ -194,6 +194,7 @@ private:
     QPushButton* m_confirmAdjustmentBtn = nullptr;
 	QPushButton* m_abortPathBtn = nullptr;
     QPushButton* m_resumePathBtn = nullptr;
+	QPushButton* m_homeBtn = nullptr;
 
     QPushButton* m_predictMicroImg = nullptr;
 

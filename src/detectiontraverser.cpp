@@ -69,7 +69,7 @@ void DetectionTraverser::process()
         // Calculate deltas from the *current actual position*
         double deltaX = targetPoint.x - globle_vars.current_x;
         double deltaY = targetPoint.y - globle_vars.current_y;
-        double deltaZ = 27960 - globle_vars.current_z; // Constant Z target
+        double deltaZ = 26650 - globle_vars.current_z; // Constant Z target
 
         //LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size());
 

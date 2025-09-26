@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -19,7 +18,15 @@ struct GlobalVars {
     double current_x = 0.0;
     double current_y = 0.0;
     double current_z = 0.0;
+    int max_x = 100000;
+	int max_y = 150000;  
+    int max_z = 39000;
+    int min_x = 0;
+    int min_y = 0;
+    int min_z = 0;
+	bool is_moving = false;
 };
+
 
 // Global instance declaration
 extern GlobalVars globle_vars;
@@ -72,6 +79,7 @@ private:
 
     // Private helper method for actual movement
     Position _move(double x, double y, double z, double vx, double vy, double vz, char direction);
+	Position _home();
 
 public:
     XYZStage(const std::string& portName = "COM5");
@@ -79,6 +87,7 @@ public:
 
     // Public move method
     void move(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);
+	void home();    
 
     // Worker Blocking move method that waits for movement to complete
     void move_and_wait(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);

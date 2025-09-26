@@ -153,9 +153,50 @@ std::string XYZStage::readResponse(HANDLE hSerial, int maxWaitMs) {
 }
 
 // Private helper method for actual movement
+XYZStage::Position XYZStage::_home() {
+	HANDLE hSerial = getSerial();
+    if (m_serialHandle == INVALID_HANDLE_VALUE) {
+        LOG_CRITICAL("MOVE FAILED - Returning old position");
+        return position;
+    }
+
+    else {
+        //DWORD bytesWritten;
+        char buffer[256];
+        sprintf_s(buffer, "/1aM1f1aM2f1aM3f1R\r\n");
+        std::string cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1aM1N1Z10000R\r\n");
+        cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1aM2N1Z10000R\r\n");
+        cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1aM3N1Z10000R\r\n");
+        cmd = buffer;
+        LOG_INFO("Home command SENT: " << cmd);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        sprintf_s(buffer, "/1z0,0,0R\r\n");
+        cmd = buffer;
+
+        LOG_INFO("Home command SENT: " << cmd);
+            // Wait for homing to complete - this is a guess, adjust as needed
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+            // Send position query command after homing completes
+        //getPosition();
+		
+
+        
+
+    }
+
+}
 XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, double vy, double vz, char direction) {
 
-    //HANDLE hSerial = getSerial();
+    HANDLE hSerial = getSerial();
     if (m_serialHandle == INVALID_HANDLE_VALUE) {
         LOG_CRITICAL("MOVE FAILED - Returning old position");
         return position;
@@ -169,11 +210,21 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     LOG_INFO("trying to move FROM: x=" << globle_vars.current_x << ", y=" << globle_vars.current_y << ", z=" << globle_vars.current_z);
 
     // Update global variables
-    /*globle_vars.current_x += (x * sign);
-    globle_vars.current_y += (y * sign);
-    globle_vars.current_z += (z * sign);*/
+    int boundx = globle_vars.current_x + (x * sign);
+    int boundy = globle_vars.current_y + (y * sign);
+    int boundz = globle_vars.current_z + (z * sign);
 
-    LOG_INFO("TO: x=" << globle_vars.current_x << ", y=" << globle_vars.current_y << ", z=" << globle_vars.current_z);
+
+    if (boundx < globle_vars.min_x || boundy < globle_vars.min_y || boundz < globle_vars.min_z) {
+        LOG_CRITICAL("MOVE FAILED - Negative position out of bounds");
+        return position;
+	}
+    else if (boundx > globle_vars.max_x || boundy > globle_vars.max_y || boundz > globle_vars.max_z) {
+        LOG_CRITICAL("MOVE FAILED - Position out of bounds");
+        return position;
+    }
+
+    //LOG_INFO("TO: x=" << globle_vars.current_x << ", y=" << globle_vars.current_y << ", z=" << globle_vars.current_z);
 
     // Convert to controller units
     int x_units = static_cast<int>(x * scale.x);
@@ -183,10 +234,6 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     int vy_units = static_cast<int>(vy * scale.y);
     int vz_units = static_cast<int>(vz * scale.z);
 
-    // Update position
-    /*position.x += x_units * sign;
-    position.y += y_units * sign;
-    position.z += z_units * sign;*/
     // Create command string based on zero values
     std::string cmd;
     
@@ -198,6 +245,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
         char buffer[256];
         sprintf_s(buffer, "/1V,,%d%c,,%dR\r\n", vz_units, direction, z_units);
         cmd = buffer;
+        
     }
     else if (x_units == 0 && z_units == 0) {
         char buffer[256];
@@ -255,6 +303,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
                 if (vz_units > 1) {
                     temp_time = std::abs(static_cast<double>(z_units) / (vz_units - 1));
                     if (temp_time > sleep_time) sleep_time = temp_time;
+                    sleep_time += 0.5;
                 }
 
                 sleep_time += 0.5; // Add 0.5 seconds buffer
@@ -280,6 +329,7 @@ XYZStage::Position XYZStage::getPosition() {
     
     char buffer2[256];
     sprintf_s(buffer2, "/1?aA\r\n");
+    //sprintf_s(buffer2, "/1s0R\r\n");
     std::string cmd2 = buffer2;
 
     if (!WriteFile(m_serialHandle, cmd2.c_str(), static_cast<DWORD>(cmd2.length()), &bytesWritten, NULL)) {
@@ -394,6 +444,15 @@ void XYZStage::move(double dx, double dy, double dz, double velocity_x, double v
     }
     // Notify the worker thread that a new command is available
     m_condition.notify_one();
+}
+
+void XYZStage::home() {
+    {
+        //std::lock_guard<std::mutex> lock(m_queueMutex);
+        _home();
+        LOG_INFO("Queued home command and notifying the worker");
+    }
+    //m_condition.notify_one();
 }
 
 // This function runs in a separate thread, processing commands from the queue.
