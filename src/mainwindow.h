@@ -65,8 +65,8 @@ public:
     QGroupBox* setupControlUI();
 
     // might need to change this return type
-    QLabel* setupArducamUI();
-    QLabel* setupDuocamUI();
+    //QLabel* setupArducamUI();
+    //QLabel* setupDuocamUI();
 
     void updateFrame(const QImage& img, int camType);
     void renderLatestFrame();
