@@ -34,8 +34,8 @@ MainWindow::MainWindow(QWidget* parent)
     QWidget* centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
 
-    this->setMinimumWidth(1280);
-    this->setMinimumHeight(720);
+    this->setMinimumWidth(1920);
+    this->setMinimumHeight(1000);
 
     int mainWidth = this->width();
     int mainHeight = this->height();
@@ -63,6 +63,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_arducamPixmapItem = new QGraphicsPixmapItem();
     m_arducamScene->addItem(m_arducamPixmapItem);
     m_arducamView->setScene(m_arducamScene);
+    connect(m_arducamView, &ZoomableGraphicsView::imageClicked,this, &MainWindow::onArducamClicked);
 
     m_microCam1View = new ZoomableGraphicsView("Micro Cam1 Output", this);
     m_microCam1View->setZoomLimits(0.05, 10.0);
@@ -378,26 +379,32 @@ QGroupBox* MainWindow::setupControlUI() {
     m_arducamOp.cameraBtn = new QPushButton("Start Camera");
     QPushButton* captureMacroImg = new QPushButton("Capture Macro Img");
     QPushButton* predictMacroImg = new QPushButton("Predict Macro pos");
-    m_goToPositionBtn = new QPushButton("Go To Position 1");
+	QPushButton* captureMacroData = new QPushButton("Capture Macro Data");
+    QPushButton* m_goToPositionBtn = new QPushButton("Go To Position 1");
     m_microCam1Op.cameraBtn = new QPushButton("Start Duo Camera");
     QPushButton* captureMicroImg = new QPushButton("Capture Micro Img");
     m_predictMicroImg = new QPushButton("Path");
+	QPushButton* captureMicroData = new QPushButton("Capture Micro Data");
 
     controlLayout->addWidget(m_arducamOp.cameraBtn);
     controlLayout->addWidget(captureMacroImg);
     controlLayout->addWidget(predictMacroImg);
+	controlLayout->addWidget(captureMacroData);
     controlLayout->addWidget(m_goToPositionBtn);
     controlLayout->addWidget(m_microCam1Op.cameraBtn);
     controlLayout->addWidget(captureMicroImg);
     controlLayout->addWidget(m_predictMicroImg);
+	controlLayout->addWidget(captureMicroData);
 
     connect(m_arducamOp.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartArducam);
     connect(captureMacroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMacroImg);
     connect(predictMacroImg, &QPushButton::clicked, this, &MainWindow::onPredictMacroImg);
+	connect(captureMacroData, &QPushButton::clicked, this, &MainWindow::onCaptureMacroData);
     connect(m_goToPositionBtn, &QPushButton::clicked, this, &MainWindow::onGoToPosition1);
     connect(m_microCam1Op.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartDuocam);
     connect(captureMicroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMicroImg);
     connect(m_predictMicroImg, &QPushButton::clicked, this, &MainWindow::onPredictMicroImg);
+	connect(captureMicroData, &QPushButton::clicked, this, &MainWindow::onCaptureMicroData);
 
     QGroupBox* controlBox = new QGroupBox();
     controlBox->setLayout(controlLayout);
@@ -547,7 +554,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(IMG, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -583,7 +590,7 @@ void MainWindow::onStartDuocam() {
     }
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(1, 1, 2720, 1536, 15);
+    m_microCam1Op.camWorker = new CameraWorker(IMG, 1, 2720, 1536, 15);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(), (float)m_microCam1View->height() / m_microCam1Op.camWorker->getFrameHeight());
@@ -597,7 +604,7 @@ void MainWindow::onStartDuocam() {
 
 
     m_microCam2Op.thrd = new QThread(this);
-    m_microCam2Op.camWorker = new CameraWorker(3, 2, 2720,1536, 15);
+    m_microCam2Op.camWorker = new CameraWorker(IMG, 2, 2720,1536, 15);
     m_microCam2Op.camWorker->moveToThread(m_microCam2Op.thrd);
 
 	m_microCam2View->scale((float)m_microCam2View->width() / m_microCam2Op.camWorker->getFrameWidth(), (float)m_microCam2View->height() / m_microCam2Op.camWorker->getFrameHeight());
@@ -617,15 +624,6 @@ void MainWindow::onCaptureMacroImg() {
 		LOG_WARNING("Arducam thread is not running. Cannot capture image.");
         return;
     }
-
-	// this will ask the camera to take high res image - merging multiple frames
-	// set the curFrame of MainWindow to the captured frame here and process this later for inference. So that we have easier access to the captured frame from all classes
-    
-	// TODO: eventually this will be read directly from the camera
-
-	// TODO: might want to stop/pause the camera worker before capturing the image and calling setCapturedFrame... maybe?? if done this way then display the scaled down image here 
-
-	// LOG_INFO("Captured frame"); for later use
 
     m_arducamOp.camWorker->setCaptureImg(true);
 	QThread::msleep(100); // waiting to capture the image
@@ -761,8 +759,135 @@ void MainWindow::onPredictMacroImg() {
 
 }
 
+//----------------------------------------------DATA CAPTURE------------------------------------------------------------
+void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imagePos) {
+    qDebug() << "Arducam clicked - Scene:" << scenePos << "Image:" << imagePos;
+    // imagePos gives you the exact pixel coordinates on the original image
+    // regardless of zoom level
+}
+void MainWindow::onMicroCam1Clicked(const QPointF& scenePos, const QPointF& imagePos) {
+    qDebug() << "MicroCam1 clicked - Scene:" << scenePos << "Image:" << imagePos;
+}
+
+void MainWindow::onMicroCam2Clicked(const QPointF& scenePos, const QPointF& imagePos) {
+    qDebug() << "MicroCam2 clicked - Scene:" << scenePos << "Image:" << imagePos;
+}
+void MainWindow::onCaptureMacroData() {
+    QString timestamp;
+    if (!m_currentMacroImg.empty()) {
+        // Save Macro image
+        QString folderPath = QDir(QCoreApplication::applicationDirPath()).filePath("macro_img_data/images");
+        QDir dir;
+        if (!dir.exists(folderPath)) {
+            dir.mkpath(folderPath);
+        }
+        timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
+        QString filePath = folderPath + "/" + timestamp + ".png";
+        cv::imwrite(filePath.toStdString(), m_currentMacroImg);
+        LOG_INFO("Macro image saved to: " + filePath.toStdString());
+
+        // Save current stage position
+        QString labelsFolder = QDir(QCoreApplication::applicationDirPath()).filePath("macro_img_data/labels");
+        if (!dir.exists(labelsFolder)) {
+            dir.mkpath(labelsFolder);
+        }
+        QString positionFilePath = QDir(labelsFolder).filePath(timestamp + ".txt");
+
+        // Now write to the file
+        QFile file(positionFilePath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+            // Write your position data here
+            // out << positionData;
+            file.close();
+            LOG_INFO("Position data saved to: " + positionFilePath.toStdString());
+        }
+        else {
+            LOG_WARNING("Failed to create position file: " + positionFilePath.toStdString());
+        }
+    }
+    else {
+        LOG_WARNING("Captured macro image is empty. Not saving.");
+    }
+}
+void MainWindow::onCaptureMicroData() {
+    if (!m_microCam1Op.thrd || !m_microCam2Op.thrd) {
+        LOG_WARNING("Duo cams are not running. Cannot capture data.");
+        return;
+    }
+    m_microCam1Op.camWorker->setCaptureImg(true);
+    QThread::msleep(50);
+    m_currentMicroImg1 = m_microCam1Op.camWorker->getCaturedFrame().clone();
+	m_microCam2Op.camWorker->setCaptureImg(true);
+	QThread::msleep(50);
+    m_currentMicroImg2 = m_microCam2Op.camWorker->getCaturedFrame().clone();
+    QString timestamp;
+    if (!m_currentMicroImg1.empty() && !m_currentMicroImg2.empty()) {
+        // Save Macro image
+        QString folderPath1 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img_data/cam1_images");
+		QDir dir1;
+        QString folderPath2 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img_data/cam2_images");
+        QDir dir2;
+        if (!dir1.exists(folderPath1)) {
+			dir1.mkpath(folderPath1);//check and create the folder if it does not exist
+        }
+        if (!dir2.exists(folderPath2)) {
+            dir2.mkpath(folderPath2);
+		}
 
 
+        timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
+        QString filePath1 = folderPath1 + "/" +"cam1_" + timestamp + ".png";
+        cv::imwrite(filePath1.toStdString(), m_currentMicroImg1);
+		QString filePath2 = folderPath2 + "/" + "cam2_" + timestamp + ".png";
+		cv::imwrite(filePath2.toStdString(), m_currentMicroImg2);
+
+        LOG_INFO("Micro image saved to: " + filePath1.toStdString());
+
+        // Save current stage position
+        QString labelsFolder1 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img_data/cam1_labels");
+        QDir ldir1;
+        if (!ldir1.exists(labelsFolder1)) {
+            ldir1.mkpath(labelsFolder1);
+        }
+        QString positionFilePath1 = QDir(labelsFolder1).filePath("cam1_" + timestamp + ".txt");
+        // labels for cam 2
+        QString labelsFolder2 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img_data/cam2_labels");
+        QDir ldir2;
+        if (!ldir2.exists(labelsFolder2)) {
+            ldir2.mkpath(labelsFolder2);
+        }
+        QString positionFilePath2 = QDir(labelsFolder2).filePath("cam2_" + timestamp + ".txt");
+
+        // Now write to the file
+        QFile l_file1(positionFilePath1);
+        if (l_file1.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&l_file1);
+            // Write your position data here
+            // out << positionData;
+            l_file1.close();
+            LOG_INFO("Position data saved to: " + positionFilePath1.toStdString());
+        }
+        else {
+            LOG_WARNING("Failed to create position file: " + positionFilePath1.toStdString());
+        }
+		//repeat for cam 2
+        QFile l_file2(positionFilePath2);
+        if (l_file2.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&l_file2);
+            // Write your position data here
+            // out << positionData;
+            l_file2.close();
+            LOG_INFO("Position data saved to: " + positionFilePath2.toStdString());
+        }
+        else {
+            LOG_WARNING("Failed to create position file: " + positionFilePath2.toStdString());
+        }
+    }
+    else {
+        LOG_WARNING("Captured macro image is empty. Not saving.");
+    }
+}
 
 //----------------------------------------------------------------------------------------------------------------
 

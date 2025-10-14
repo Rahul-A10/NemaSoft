@@ -146,7 +146,7 @@ std::vector<int> checkAvailableCameraConnections() {
         }
     }
 
-	assert(!noneFound && "No cameras found at indices 0-9. Please connect a camera and try again.");
+	//assert(!noneFound && "No cameras found at indices 0-9. Please connect a camera and try again.");
 
     // check if not in cam debug mode, then we expect min of 3 cameras
     if (!get_camDebug_flag())

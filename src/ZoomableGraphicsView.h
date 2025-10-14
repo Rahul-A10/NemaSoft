@@ -5,6 +5,10 @@
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QString>
+#include <QGraphicsItem>
+#include <QGraphicsPixmapItem>
+#include <QGraphicsScene>
+#include <QGraphicsView>
 
 class ZoomableGraphicsView : public QGraphicsView
 {
@@ -17,6 +21,8 @@ public:
 
     void setZoomLimits(double min, double max);
 	//void setActivationStatus(bool activated) { m_activated = activated; }
+signals:
+    void imageClicked(const QPointF& scenePos, const QPointF& imagePos);
 
 protected:
     void wheelEvent(QWheelEvent* event) override;

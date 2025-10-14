@@ -57,15 +57,42 @@ void ZoomableGraphicsView::wheelEvent(QWheelEvent* event)
 
 void ZoomableGraphicsView::mousePressEvent(QMouseEvent* event)
 {
-    if (event->button() == Qt::LeftButton) {
+    if (event->button() == Qt::RightButton) {
         setDragMode(QGraphicsView::ScrollHandDrag);
+    }
+
+    if (event->button() == Qt::LeftButton) {
+        // Get the position in view coordinates
+        QPointF viewPos = event->pos();
+
+        // Map to scene coordinates
+        QPointF scenePos = mapToScene(viewPos.toPoint());
+
+        // Get the pixmap item to find image coordinates
+        QGraphicsPixmapItem* pixmapItem = nullptr;
+        QList<QGraphicsItem*> items = scene()->items();
+        for (QGraphicsItem* item : items) {
+            pixmapItem = qgraphicsitem_cast<QGraphicsPixmapItem*>(item);
+            if (pixmapItem) break;
+        }
+
+        if (pixmapItem) {
+            // Map scene coordinates to item (image) coordinates
+            QPointF imagePos = pixmapItem->mapFromScene(scenePos);
+
+            // Check if click is within the image bounds
+            QRectF imageRect = pixmapItem->boundingRect();
+            if (imageRect.contains(imagePos)) {
+                emit imageClicked(scenePos, imagePos);
+            }
+        }
     }
     QGraphicsView::mousePressEvent(event);
 }
 
 void ZoomableGraphicsView::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (event->button() == Qt::LeftButton) {
+    if (event->button() == Qt::RightButton) {
         setDragMode(QGraphicsView::RubberBandDrag);
     }
     QGraphicsView::mouseReleaseEvent(event);

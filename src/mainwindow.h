@@ -75,6 +75,8 @@ public:
     void onCaptureMacroImg();
     void inferenceResult(const cv::Mat& frame, const std::vector<cv::Rect>& boxCentroids);
     void onPredictMacroImg();
+	void onCaptureMacroData();
+    void onCaptureMicroData();
 
 
     void onGoToPosition1();
@@ -109,6 +111,11 @@ public:
     void onConfirmAdjustmentClicked();
     void onTraversalFinished(const QString& message);
 	void onHomeClicked();
+
+
+    void onArducamClicked(const QPointF& scenePos, const QPointF& imagePos);
+    void onMicroCam1Clicked(const QPointF& scenePos, const QPointF& imagePos);
+    void onMicroCam2Clicked(const QPointF& scenePos, const QPointF& imagePos);
 private:
     // Transformation methods
     cv::Mat calculateTransformationMatrix(const std::vector<cv::Point2f>& imagePoints,
