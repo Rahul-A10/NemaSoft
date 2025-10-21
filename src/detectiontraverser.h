@@ -23,7 +23,7 @@ public slots:
 
 signals:
     void traversalStarted();
-    void updateProgress(int current, int total);
+    void updateProgress(size_t current, size_t total);
     void waitingForUserAdjustment();
     void traversalFinished(const QString& message);
 

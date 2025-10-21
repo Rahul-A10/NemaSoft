@@ -26,7 +26,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-
+#pragma execution_character_set("utf-8")
 
 
 MainWindow::MainWindow(QWidget* parent)
