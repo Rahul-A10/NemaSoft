@@ -122,7 +122,7 @@ std::vector<int> checkAvailableCameraConnections() {
 	std::vector<int> availableCameras;
 
     // Loop through potential indices to see which ones are valid
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 4; ++i) {
         cv::VideoCapture cap(i);
 
         if (cap.isOpened()) {
@@ -193,4 +193,40 @@ cv::Mat cropInputImage(const cv::Mat& input) {
     cropped = cropped(finalRect).clone();
 
     return cropped;
+}
+
+void Logger::appendLog(QTextEdit* logTextEdit, const QString& message, const QString& level) {
+    if (!logTextEdit) return;
+
+    QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
+    QString colorCode;
+
+    // Color coding based on log level
+    if (level == "ERROR" || level == "CRITICAL") {
+        colorCode = "#ff6b6b";  // Red
+    }
+    else if (level == "WARNING") {
+        colorCode = "#ffd93d";  // Yellow
+    }
+    else if (level == "INFO") {
+        colorCode = "#6bcf7f";  // Green
+    }
+    else {
+        colorCode = "#d4d4d4";  // White
+    }
+
+    QString formattedMessage = QString("<span style='color: #888;'>[%1]</span> "
+        "<span style='color: %2;'>[%3]</span> "
+        "<span style='color: #d4d4d4;'>%4</span>")
+        .arg(timestamp)
+        .arg(colorCode)
+        .arg(level)
+        .arg(message);
+
+    logTextEdit->append(formattedMessage);
+
+    // Auto-scroll to bottom
+    QTextCursor cursor = logTextEdit->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    logTextEdit->setTextCursor(cursor);
 }

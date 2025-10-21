@@ -10,7 +10,9 @@
 #include <QString>
 #include <QLoggingCategory>
 #include <QDebug>
-
+#include <QTextEdit>
+#include <QDateTime>
+#include <QTextCursor>
 
 enum cameraType {
 	NONE = -1,
@@ -48,10 +50,12 @@ class Logger
 public:
 	static void initialize();
 	static void cleanup();
+	static void appendLog(QTextEdit* logTextEdit, const QString& message, const QString& level = "INFO");
 
 private:
 	static void fileMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg);
 };
+
 
 
 // General application logging

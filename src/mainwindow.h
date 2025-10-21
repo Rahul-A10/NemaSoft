@@ -9,7 +9,6 @@
 #include <QPushButton>
 #include <QElapsedTimer>
 #include <opencv2/opencv.hpp>
-
 #include "cameraworker.h"
 #include "inferenceworker.h"
 #include <QLineEdit>
@@ -17,7 +16,7 @@
 #include "ZoomableGraphicsView.h"
 #include "XYZStage.h"
 #include "DetectionTraverser.h"
-
+#include <QTextEdit>
 
 struct cameraOp
 {
@@ -50,6 +49,17 @@ struct inferenceOp
         thrd = nullptr;
     }
 };
+
+struct YoloAnnotation {
+    int classId;
+    QPointF center;  // Normalized center coordinates (0-1)
+    double width;    // Normalized width (0-1)
+    double height;   // Normalized height (0-1)
+};
+
+
+
+
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -111,23 +121,35 @@ public:
     void onConfirmAdjustmentClicked();
     void onTraversalFinished(const QString& message);
 	void onHomeClicked();
-
-
     void onArducamClicked(const QPointF& scenePos, const QPointF& imagePos);
     void onMicroCam1Clicked(const QPointF& scenePos, const QPointF& imagePos);
     void onMicroCam2Clicked(const QPointF& scenePos, const QPointF& imagePos);
+	void clearMacroAnnotations();
+    int getSelectedMacroId() const;
+    QString getSelectedMacroLabel() const;
+	QString getSelectedMicroLabel() const;
+    int getSelectedMicroId() const;
+
+    void updateMacroImageDisplay();
+    //void drawAnnotationBox(int index);
+    bool isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight);
+    void appendLog(const QString& message, const QString& level = "INFO");
+
 private:
+
+    
     // Transformation methods
     cv::Mat calculateTransformationMatrix(const std::vector<cv::Point2f>& imagePoints,
         const std::vector<cv::Point2f>& realPoints);
 
     // private class members
     cv::Mat m_transformMatrix;
-
+    QVector<YoloAnnotation> m_macroAnnotations;
     QLabel* m_xLabel;
     QLabel* m_yLabel;
     QLabel* m_zLabel;
     QTimer* m_positionUpdateTimer;
+    QTextEdit* m_logTextEdit;
     double m_prevX;
     double m_prevY;
     double m_prevZ;
@@ -143,6 +165,7 @@ private:
 	ZoomableGraphicsView* m_arducamView = nullptr;
     QGraphicsScene* m_arducamScene = nullptr;
     QGraphicsPixmapItem* m_arducamPixmapItem = nullptr;
+    QMap<QGraphicsRectItem*, int> m_annotationRects; // Maps rect items to annotation indices
     QLabel* m_arducamFPS = nullptr;
     cameraOp m_arducamOp;
     inferenceOp m_macroImgInference;
@@ -196,12 +219,14 @@ private:
     QPushButton* m_slant2Btn = nullptr;
     QPushButton* m_slant3Btn = nullptr;
     QPushButton* m_slant4Btn = nullptr;
-
+	//Position display and go to position
     QPushButton* m_goToPositionBtn = nullptr;
     QPushButton* m_confirmAdjustmentBtn = nullptr;
 	QPushButton* m_abortPathBtn = nullptr;
     QPushButton* m_resumePathBtn = nullptr;
 	QPushButton* m_homeBtn = nullptr;
+    QComboBox* m_macroComboBox;
+    QComboBox* m_microComboBox;
 
     QPushButton* m_predictMicroImg = nullptr;
 

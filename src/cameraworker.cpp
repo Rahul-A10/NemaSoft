@@ -102,7 +102,7 @@ void CameraWorker::process() {
             //cv::flip(frame, frame, 1);
             //cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
 
-            if (getCaptureImg() || m_cameraIndex == IMG) {
+            if (getCaptureImg()) {
                 LOG_INFO("Captured frame");
                 setCapturedFrame(frame);
             }

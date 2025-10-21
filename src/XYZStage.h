@@ -12,6 +12,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <QTextEdit>
+#include "utils.h"
 
 // Global variables structure (similar to your globle_vars)
 struct GlobalVars {
@@ -80,6 +82,7 @@ private:
     // Private helper method for actual movement
     Position _move(double x, double y, double z, double vx, double vy, double vz, char direction);
 	Position _home();
+    QTextEdit* m_logTextEdit;
 
 public:
     XYZStage(const std::string& portName = "COM5");
@@ -103,4 +106,7 @@ public:
     void setPort(const std::string& newPort) { port = newPort; }
 
     HANDLE getSerialHandle() { return m_serialHandle; }
+
+    void setLogTextEdit(QTextEdit* logTextEdit) { m_logTextEdit = logTextEdit; }
+    void appendLog(const QString& message, const QString& level = "INFO");
 };
