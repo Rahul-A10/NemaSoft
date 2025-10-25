@@ -31,6 +31,7 @@
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
+    // Set dark theme palette
     QWidget* centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
 
@@ -143,6 +144,8 @@ MainWindow::MainWindow(QWidget* parent)
     uiUpdateTimer->start(10); // making this faster updates the ui faster
 
 	m_UITimer.start();
+
+
 
 }
 
