@@ -16,6 +16,7 @@ class InferenceWorker : public QObject {
 
 public:
     explicit InferenceWorker(int frameWidth, int frameHeight, cv::Mat& img);
+    explicit InferenceWorker(int frameWidth, int frameHeight, cv::Mat& img, const std::vector<cv::Rect>& manualBoxes); // New constructor
     ~InferenceWorker();
 
     void clearInput() {
@@ -48,11 +49,17 @@ public:
     
 public slots:
     void predict();
+    void predictWithManualBoxes();
 
 signals:
     void frameProcessed(const cv::Mat& frame, const std::vector<cv::Rect>& boxCentroids);
 
 private:
+
+    std::vector<cv::Rect> m_manualBoxes; // Store manual boxes
+    bool m_useManualBoxes = false;
+
+
     // ONNX Runtime components
     std::unique_ptr<Ort::Env> m_env;
     std::unique_ptr<Ort::Session> m_session;

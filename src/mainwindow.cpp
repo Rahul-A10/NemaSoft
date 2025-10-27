@@ -40,6 +40,10 @@ MainWindow::MainWindow(QWidget* parent)
 
     int mainWidth = this->width();
     int mainHeight = this->height();
+
+    m_xyzStage.setLogCallback([this](const QString& message, const QString& level) {
+        this->appendLog(message, level);
+        });
     
     QHBoxLayout* controlLayout = new QHBoxLayout();
     controlLayout->addWidget(setupMovementUI());
@@ -343,7 +347,7 @@ void MainWindow::setMovementControlsEnabled(bool enabled) {
     m_slant2Btn->setEnabled(enabled);
     m_slant3Btn->setEnabled(enabled);
     m_slant4Btn->setEnabled(enabled);
-    m_goToPositionBtn->setEnabled(enabled);
+    ///m_goToPositionBtn->setEnabled(enabled);
 }
 
 
@@ -429,12 +433,13 @@ QGroupBox* MainWindow::setupControlUI() {
 
     m_arducamOp.cameraBtn = new QPushButton("Start Camera");
     QPushButton* captureMacroImg = new QPushButton("Capture Macro Img");
-    QPushButton* predictMacroImg = new QPushButton("Predict Macro pos");
+    QPushButton* predictMacroImg = new QPushButton("Calculate Path");
 	QPushButton* captureMacroData = new QPushButton("Capture Macro Data");
-    QPushButton* m_goToPositionBtn = new QPushButton("Go To Position 1");
+    m_goToPositionBtn = new QPushButton("Go To Position 1", this);
     m_microCam1Op.cameraBtn = new QPushButton("Start Duo Camera");
     QPushButton* captureMicroImg = new QPushButton("Capture Micro Img");
-    m_predictMicroImg = new QPushButton("Path");
+    QPushButton* m_trivarsePath = new QPushButton("Trivarse Path");
+    m_predictMicroImg = new QPushButton("Predict Micro pos");
 	QPushButton* captureMicroData = new QPushButton("Capture Micro Data");
 
     controlLayout->addWidget(m_arducamOp.cameraBtn);
@@ -444,6 +449,7 @@ QGroupBox* MainWindow::setupControlUI() {
     controlLayout->addWidget(m_goToPositionBtn);
     controlLayout->addWidget(m_microCam1Op.cameraBtn);
     controlLayout->addWidget(captureMicroImg);
+	controlLayout->addWidget(m_trivarsePath);
     controlLayout->addWidget(m_predictMicroImg);
 	controlLayout->addWidget(captureMicroData);
 
@@ -454,6 +460,7 @@ QGroupBox* MainWindow::setupControlUI() {
     connect(m_goToPositionBtn, &QPushButton::clicked, this, &MainWindow::onGoToPosition1);
     connect(m_microCam1Op.cameraBtn, &QPushButton::clicked, this, &MainWindow::onStartDuocam);
     connect(captureMicroImg, &QPushButton::clicked, this, &MainWindow::onCaptureMicroImg);
+    connect(m_trivarsePath, &QPushButton::clicked, this, &MainWindow::onTriversePath);
     connect(m_predictMicroImg, &QPushButton::clicked, this, &MainWindow::onPredictMicroImg);
 	connect(captureMicroData, &QPushButton::clicked, this, &MainWindow::onCaptureMicroData);
 
@@ -579,7 +586,8 @@ void MainWindow::updatePositionDisplay() {
 
 
 
-void MainWindow::onStartArducam() { 
+void MainWindow::onStartArducam() {
+    clearMacroAnnotations();
     if (m_arducamOp.thrd) {
         // Already running - stop!
         appendLog("stopping arducam", "INFO");
@@ -615,7 +623,7 @@ void MainWindow::onStartArducam() {
     connect(m_arducamOp.thrd, &QThread::started, m_arducamOp.camWorker, &CameraWorker::process); 
     connect(m_arducamOp.camWorker, &CameraWorker::frameReady, this, &MainWindow::updateFrame, Qt::QueuedConnection); 
     connect(m_arducamOp.thrd, &QThread::finished, m_arducamOp.camWorker, &QObject::deleteLater); 
-    
+    clearMacroAnnotations();
     m_arducamOp.cameraBtn->setText("Stop Camera");
 
     m_arducamOp.FPSTimer.start();
@@ -728,15 +736,15 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 
     cv::Mat resized;
     cv::resize(frame, resized, cv::Size(3840, 2160));
+    cv::cvtColor(resized, resized, cv::COLOR_BGR2RGB);
     QImage qImage(resized.data, resized.cols, resized.rows, resized.step, QImage::Format_RGB888);
     updateFrame(qImage.copy(), ARDUCAM);
     // copy the boxCentroids to use them later to change the color of detected boxes once processed
-    m_macroImgPath.clear();
     m_macroImgPath = boxCentroids;
-
     // Clean up inference worker and thread
     m_macroImgInference.free();
     m_arducamOp.toggleCamera();
+
     m_arducamOp.cameraBtn->setText("Restart Arducam");
 
     if (m_macroImgInference.thrd) {
@@ -786,57 +794,101 @@ void MainWindow::setupTransformationMatrix() {
 
 
 void MainWindow::onPredictMacroImg() {
-    if (!m_arducamOp.thrd || m_macroImgInference.thrd) {
-        appendLog("Arducam thread is not running or inference is already in progress.","WARNING");
+    // Check if manual annotations already exist
+    if (!m_macroAnnotations.isEmpty()) {
+        appendLog("Manual annotations detected. Using existing annotations for path traversal.", "INFO");
+
+        // Filter annotations with class ID 1 and convert to cv::Rect
+        std::vector<cv::Rect> manualBoxes;
+        for (const YoloAnnotation& ann : m_macroAnnotations) {
+            if (ann.classId == 1) {
+                // Convert normalized coordinates to pixel coordinates
+                int imageWidth = m_currentMacroImg.cols;
+                int imageHeight = m_currentMacroImg.rows;
+
+                float centerX = ann.center.x() * imageWidth;
+                float centerY = ann.center.y() * imageHeight;
+                float boxWidth = ann.width * imageWidth;
+                float boxHeight = ann.height * imageHeight;
+
+                // Create box with top-left corner coordinates
+                int x = static_cast<int>(centerX - boxWidth / 2.0f);
+                int y = static_cast<int>(centerY - boxHeight / 2.0f);
+                int w = static_cast<int>(boxWidth);
+                int h = static_cast<int>(boxHeight);
+
+                // Clamp to image bounds
+                x = max(0,min(x, imageWidth - w));
+                y = max(0,min(y, imageHeight - h));
+                w = max(1,min(w, imageWidth - x));
+                h = max(1,min(h, imageHeight - y));
+
+                cv::Rect box(x, y, w, h);
+                manualBoxes.push_back(box);
+            }
+        }
+
+
+        appendLog(QString("Passing %1 manual annotations to InferenceWorker").arg(manualBoxes.size()), "INFO");
+
+        // Create InferenceWorker with manual boxes
+        m_macroImgInference.thrd = new QThread(this);
+        m_macroImgInference.infWorker = new InferenceWorker(m_currentMacroImg.cols, m_currentMacroImg.rows, m_currentMacroImg, manualBoxes);
+        m_macroImgInference.infWorker->moveToThread(m_macroImgInference.thrd);
+        connect(m_macroImgInference.thrd, &QThread::started, m_macroImgInference.infWorker, &InferenceWorker::predictWithManualBoxes);
+        connect(m_macroImgInference.infWorker, &InferenceWorker::frameProcessed, this, &MainWindow::inferenceResult);
+        connect(m_macroImgInference.thrd, &QThread::finished, m_macroImgInference.infWorker, &QObject::deleteLater);
+        m_macroImgInference.thrd->start();
         return;
     }
 
+    if (!m_arducamOp.thrd || m_macroImgInference.thrd) {
+        appendLog("Arducam thread is not running or inference is already in progress.", "WARNING");
+        return;
+    }
     if (!m_arducamOp.camWorker->getCaptureImg()) {
         appendLog("No captured frame to process. Please capture an image first.", "WARNING");
         return;
     }
 
-	std::string modelPath = "deps/models/yolov11n_trainedv1.onnx";
+    std::string modelPath = "deps/models/yolov11n_trainedv1.onnx";
     if (!std::filesystem::exists(modelPath)) {
-        appendLog(QString("Model file does not exist: %1").arg(modelPath),"CRITICAL");
+        appendLog(QString("Model file does not exist: %1").arg(QString::fromStdString(modelPath)), "CRITICAL");
         return;
-	}
+    }
 
     m_arducamOp.camWorker->stop();
-    
+
     {
         appendLog("Starting inference on captured macro image...", "INFO");
-
         m_macroImgInference.thrd = new QThread(this);
-
-
         m_macroImgInference.infWorker = new InferenceWorker(m_currentMacroImg.cols, m_currentMacroImg.rows, m_currentMacroImg);
         m_macroImgInference.infWorker->moveToThread(m_macroImgInference.thrd);
-
         connect(m_macroImgInference.thrd, &QThread::started, m_macroImgInference.infWorker, &InferenceWorker::predict);
         connect(m_macroImgInference.infWorker, &InferenceWorker::frameProcessed, this, &MainWindow::inferenceResult);
         connect(m_macroImgInference.thrd, &QThread::finished, m_macroImgInference.infWorker, &QObject::deleteLater);
-
         m_macroImgInference.thrd->start();
     }
-    //m_arducamOp.camWorker->start(); // show the updated captured frame...
-
 }
 
 //----------------------------------------------DATA CAPTURE------------------------------------------------------------
-void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imagePos) {
-    appendLog(QString("Arducam clicked - Scene:%1 Image:%2").arg(QString::number(scenePos.x()) + "," + QString::number(scenePos.y())).arg(QString::number(imagePos.x()) + "," + QString::number(imagePos.y())),"INFO");
 
+
+void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imagePos) {
+    appendLog(QString("Arducam clicked - Scene:%1 Image:%2")
+        .arg(QString::number(scenePos.x()) + "," + QString::number(scenePos.y()))
+        .arg(QString::number(imagePos.x()) + "," + QString::number(imagePos.y())), "INFO");
+    
     // Check if we have a captured macro image
     if (m_currentMacroImg.empty()) {
         appendLog("No macro image captured yet", "INFO");
         return;
     }
-
+    
     // Get image dimensions from the OpenCV Mat
     int imageWidth = m_currentMacroImg.cols;
     int imageHeight = m_currentMacroImg.rows;
-
+    
     // Check if click is inside any existing bounding box (for deletion)
     for (int i = m_macroAnnotations.size() - 1; i >= 0; --i) {
         if (isClickInsideBox(imagePos, m_macroAnnotations[i], imageWidth, imageHeight)) {
@@ -846,27 +898,34 @@ void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imageP
             return;
         }
     }
-
+    
     // If not clicking on existing box, add new annotation
-    int classId = getSelectedMacroId();
-
+    // Use only class ID 0 for path traversing
+    int classId = getSelectedMacroId();  // Force first class ID for path traversing
+    
     // Normalize coordinates (YOLO format uses 0-1 range)
     double normalizedX = imagePos.x() / imageWidth;
     double normalizedY = imagePos.y() / imageHeight;
-
+    
     // Default bounding box size (you can adjust these or make them configurable)
-    double defaultWidth = 0.01;  // 5% of image width
-    double defaultHeight = 0.01; // 5% of image height
-
+    double defaultWidth = 0.01;  // 1% of image width
+    double defaultHeight = 0.01; // 1% of image height
+    
     YoloAnnotation annotation;
     annotation.classId = classId;
     annotation.center = QPointF(normalizedX, normalizedY);
     annotation.width = defaultWidth;
     annotation.height = defaultHeight;
-
+    
     m_macroAnnotations.append(annotation);
-
-    appendLog(QString("Annotation added - Class: %1, Center: (%2, %3), Size: (%4, %5)").arg(classId).arg(normalizedX).arg(normalizedY).arg(defaultWidth).arg(defaultHeight), "INFO");
+    
+    appendLog(QString("Manual annotation added - Class: %1, Center: (%2, %3), Size: (%4, %5)")
+        .arg(classId)
+        .arg(normalizedX)
+        .arg(normalizedY)
+        .arg(defaultWidth)
+        .arg(defaultHeight), "INFO");
+    
     // Update the display
     updateMacroImageDisplay();
 }
@@ -894,7 +953,6 @@ void MainWindow::updateMacroImageDisplay() {
 
     // Clone the original image
     cv::Mat displayImg = m_currentMacroImg.clone();
-
     int imageWidth = displayImg.cols;
     int imageHeight = displayImg.rows;
 
@@ -914,31 +972,32 @@ void MainWindow::updateMacroImageDisplay() {
         int w = static_cast<int>(boxWidth);
         int h = static_cast<int>(boxHeight);
 
-        // Draw rectangle
-        cv::rectangle(displayImg, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
+        // Get color for current class
+        cv::Scalar color = getColorForClass(ann.classId);
 
-        // Draw class ID label
-        QString className = "";
+        // Draw rectangle
+        cv::rectangle(displayImg, cv::Rect(x, y, w, h), color, 2);
+
         // Find the class name in the combo box by searching for the matching ID
+        QString className = "";
         for (int idx = 0; idx < m_macroComboBox->count(); ++idx) {
             if (m_macroComboBox->itemData(idx).toInt() == ann.classId) {
                 className = m_macroComboBox->itemText(idx);
                 break;
             }
         }
+
+        // Draw class ID label
         std::string label = className.toStdString();
         cv::putText(displayImg, label, cv::Point(x, y - 5),
-            cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(0, 255, 0), 3);
+            cv::FONT_HERSHEY_SIMPLEX, 1.5, color, 3);
     }
+
     // Convert to QImage
     cv::Mat rgbImg;
     cv::cvtColor(displayImg, rgbImg, cv::COLOR_BGR2RGB);
     QImage qImg(rgbImg.data, rgbImg.cols, rgbImg.rows, rgbImg.step, QImage::Format_RGB888);
-
-    // Use the same updateFrame mechanism as camera updates
     updateFrame(qImg.copy(), ARDUCAM);
-
-    
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1161,40 +1220,7 @@ void MainWindow::onCaptureMicroImg() {
 
 }
 void MainWindow::onPredictMicroImg() {
-    if (m_transformMatrix.empty()) {
-        //LOG_WARNING("Transformation matrix not set. Please calculate transformation matrix first.");
-        //LOG_INFO("Use calculateTransformationMatrix() with 3 corresponding image and real coordinate points.");
-        return;
-    }
-
-    if (m_macroImgPath.empty()) {
-        //LOG_WARNING("No detected objects in macro image path. Please capture and predict macro image first.");
-        return;
-    }
-
-    /*if (m_xyzStage.getSerialHandle() == INVALID_HANDLE_VALUE){
-        LOG_WARNING("XYZ Stage not connected. Please connect the stage first.");
-        return;
-	}*/
-
-    //LOG_INFO("Starting traversal of detected macro image path...");
-
-    m_traverser = new DetectionTraverser(&m_xyzStage);
-
-    m_traverserThread = new QThread(this);
-    m_traverser->moveToThread(m_traverserThread);
-    m_traverser->setTraversalData(m_macroImgPath, m_transformMatrix);
-
-    // Connect signals from the worker to slots in the main window
-    connect(m_traverserThread, &QThread::started, m_traverser, &DetectionTraverser::process);
-    connect(m_traverser, &DetectionTraverser::traversalStarted, this, &MainWindow::onTraversalStarted);
-    connect(m_traverser, &DetectionTraverser::waitingForUserAdjustment, this, &MainWindow::onWaitingForUser);
-    connect(m_traverser, &DetectionTraverser::traversalFinished, this, &MainWindow::onTraversalFinished);
-
-    // For cleanup
-    connect(m_traverserThread, &QThread::finished, m_traverserThread, &QObject::deleteLater);
-
-    m_traverserThread->start();
+	appendLog("Predict Micro Image button clicked.", "INFO");
 }
 
 void MainWindow::onTraversalStarted() {
@@ -1251,6 +1277,47 @@ void MainWindow::onTraversalFinished(const QString& message) {
     }
 
 	m_predictMicroImg->setEnabled(true);
+}
+
+void MainWindow::onTriversePath() {
+        appendLog("Path button clicked.", "INFO");
+        if (m_transformMatrix.empty()) {
+            appendLog("Transformation matrix not set. Please calculate transformation matrix first.", "WARNING");
+            appendLog("Use calculateTransformationMatrix() with 3 corresponding image and real coordinate points.","INFO");
+            return;
+        }
+
+        if (m_macroImgPath.empty()) {
+            appendLog("No detected objects in macro image path. Please capture and predict macro image first.", "WARNING");
+            return;
+        }
+
+        /*if (m_xyzStage.getSerialHandle() == INVALID_HANDLE_VALUE){
+            appendLog("XYZ Stage not connected. Please connect the stage first.","WARNING" );
+            return;
+        }*/
+
+        appendLog("Starting traversal of detected macro image path...", "INFO");
+
+        m_traverser = new DetectionTraverser(&m_xyzStage);
+        m_traverserThread = new QThread(this);
+        m_traverser->moveToThread(m_traverserThread);
+        m_traverser->setTraversalData(m_macroImgPath, m_transformMatrix);
+
+
+        
+
+        // Connect signals from the worker to slots in the main window
+        connect(m_traverserThread, &QThread::started, m_traverser, &DetectionTraverser::process);
+        connect(m_traverser, &DetectionTraverser::logMessage, this, &MainWindow::appendLog);
+        connect(m_traverser, &DetectionTraverser::traversalStarted, this, &MainWindow::onTraversalStarted);
+        connect(m_traverser, &DetectionTraverser::waitingForUserAdjustment, this, &MainWindow::onWaitingForUser);
+        connect(m_traverser, &DetectionTraverser::traversalFinished, this, &MainWindow::onTraversalFinished);
+        
+        // For cleanup
+        connect(m_traverserThread, &QThread::finished, m_traverserThread, &QObject::deleteLater);
+        m_traverserThread->start();
+
 }
 
 void MainWindow::onAbortPathClicked() {

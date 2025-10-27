@@ -11,6 +11,46 @@ InferenceWorker::InferenceWorker(int frameWidth, int frameHeight, cv::Mat& img) 
     initializeONNXRuntime();
     readClassNames();
 }
+InferenceWorker::InferenceWorker(int frameWidth, int frameHeight, cv::Mat& img, const std::vector<cv::Rect>& manualBoxes)
+    : m_frameWidth(frameWidth), m_frameHeight(frameHeight), m_inputFrame(img), m_manualBoxes(manualBoxes), m_useManualBoxes(true) {
+    // No need to initialize ONNX Runtime for manual boxes
+    readClassNames();
+}
+void InferenceWorker::predictWithManualBoxes() {
+    QMutexLocker locker(&m_mutex);
+
+    if (m_inputFrame.empty()) {
+        LOG_WARNING("Input frame is empty. Cannot process manual annotations.");
+        return;
+    }
+
+    if (m_manualBoxes.empty()) {
+        LOG_WARNING("No manual boxes provided.");
+        emit frameProcessed(m_inputFrame, {});
+        return;
+    }
+
+    LOG_INFO("Processing " << m_manualBoxes.size() << " manual annotations");
+
+    // Draw boxes on the image
+    for (const auto& box : m_manualBoxes) {
+        cv::rectangle(m_inputFrame, box, cv::Scalar(0, 255, 0), 2);
+        cv::putText(m_inputFrame, "Manual", cv::Point(box.x, box.y - 5),
+            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
+    }
+
+    // Calculate shortest path through manual boxes
+    std::vector<cv::Rect> path = shortestPath(m_manualBoxes);
+
+    // Draw path
+    for (int i = 0; i < path.size() - 1; ++i) {
+        cv::Point center1 = (path[i].tl() + path[i].br()) * 0.5;
+        cv::Point center2 = (path[i + 1].tl() + path[i + 1].br()) * 0.5;
+        cv::line(m_inputFrame, center1, center2, cv::Scalar(255, 0, 0), 2);
+    }
+
+    emit frameProcessed(m_inputFrame, path);
+}
 
 InferenceWorker::~InferenceWorker() {
     clearInput();

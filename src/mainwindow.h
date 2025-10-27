@@ -115,7 +115,6 @@ public:
     void onAbortPathClicked();
 	void onResumePathClicked();
 	void setMovementControlsEnabled(bool enabled);
-
     void onTraversalStarted();
     void onWaitingForUser();
     void onConfirmAdjustmentClicked();
@@ -129,11 +128,11 @@ public:
     QString getSelectedMacroLabel() const;
 	QString getSelectedMicroLabel() const;
     int getSelectedMicroId() const;
-
     void updateMacroImageDisplay();
     //void drawAnnotationBox(int index);
     bool isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight);
     void appendLog(const QString& message, const QString& level = "INFO");
+	void onTriversePath();
 
 private:
 
@@ -227,7 +226,7 @@ private:
 	QPushButton* m_homeBtn = nullptr;
     QComboBox* m_macroComboBox;
     QComboBox* m_microComboBox;
-
+    QComboBox* m_trivarsePath;
     QPushButton* m_predictMicroImg = nullptr;
 
     QThread* m_traverserThread = nullptr;

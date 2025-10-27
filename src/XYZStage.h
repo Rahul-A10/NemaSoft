@@ -14,12 +14,14 @@
 #include <atomic>
 #include <QTextEdit>
 #include "utils.h"
+#include <QString>
+#include <functional>
 
 // Global variables structure (similar to your globle_vars)
 struct GlobalVars {
-    double current_x = 0.0;
-    double current_y = 0.0;
-    double current_z = 0.0;
+    double current_x = 100.0;
+    double current_y = 100.0;
+    double current_z = 100.0;
     int max_x = 100000;
 	int max_y = 150000;  
     int max_z = 39000;
@@ -67,10 +69,20 @@ private:
     std::mutex m_queueMutex;
     std::condition_variable m_condition;
     std::atomic<bool> m_stopWorker;
+        
 
+
+    // Helper to log
+    void log(const QString& message, const QString& level = "INFO") {
+        if (m_logCallback) {
+            m_logCallback(message, level);
+        }
+    }
+    // Member variables
+    std::function<void(const QString&, const QString&)> m_logCallback;
     std::mutex m_syncMutex;
     std::condition_variable m_syncCondition;
-    std::atomic<bool> m_isWaitingForMoveCompletion{ false };
+    std::atomic<bool> m_isWaitingForMoveCompletion;
 
     void worker();
 
@@ -82,11 +94,17 @@ private:
     // Private helper method for actual movement
     Position _move(double x, double y, double z, double vx, double vy, double vz, char direction);
 	Position _home();
-    QTextEdit* m_logTextEdit;
 
 public:
+
     XYZStage(const std::string& portName = "COM5");
     ~XYZStage();
+
+    void setLogCallback(const std::function<void(const QString&, const QString&)>& callback) {
+        m_logCallback = callback;
+    }
+
+
 
     // Public move method
     void move(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);
@@ -107,6 +125,4 @@ public:
 
     HANDLE getSerialHandle() { return m_serialHandle; }
 
-    void setLogTextEdit(QTextEdit* logTextEdit) { m_logTextEdit = logTextEdit; }
-    void appendLog(const QString& message, const QString& level = "INFO");
 };

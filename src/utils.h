@@ -56,6 +56,7 @@ private:
 	static void fileMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg);
 };
 
+cv::Scalar getColorForClass(int classId);
 
 
 // General application logging

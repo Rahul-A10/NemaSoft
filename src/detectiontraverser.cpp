@@ -1,10 +1,16 @@
 #include "detectiontraverser.h"
 #include "utils.h"
 #include <vector>
+#include "mainwindow.h"
+#include <QString>
+#include <QObject>
+#include <QTextEdit>
+
 
 DetectionTraverser::DetectionTraverser(XYZStage* xyzStage, QObject *parent)
     : QObject(parent), m_xyzStage(xyzStage), m_paused(false), m_aborted(false)
 {
+    log("appendLog working in detectiontraverser.", "INFO");
 }
 
 void DetectionTraverser::setTraversalData(const std::vector<cv::Rect>& path, const cv::Mat& transformMatrix)
@@ -26,6 +32,7 @@ void DetectionTraverser::userConfirmedAdjustment()
 {
     QMutexLocker locker(&m_mutex);
     if (m_paused) {
+        log("Resume state.", "INFO");
         m_paused = false;
         m_pauseCondition.wakeAll(); // Wake up the processing loop
     }
@@ -45,14 +52,14 @@ void DetectionTraverser::process()
         cv::transform(imagePoints, transformedPoints, m_transformMatrix);
         realCoordinates.push_back(transformedPoints[0]);
     }
-    
-    //LOG_INFO("Starting traversal of " << realCoordinates.size() << " detected points");
+    log(QString("Starting traversal of: %1 detected points.").arg(realCoordinates.size()), "INFO");
+    //LOG_INFO("Starting traversal of " <<  << " detected points");
 
     for (size_t i = 0; i < realCoordinates.size(); ++i) {
         {
             QMutexLocker locker(&m_mutex);
             if (m_aborted) {
-                //LOG_INFO("Traversal aborted by user.");
+                log(QString("Trivarsal aborted"), "INFO");
                 emit traversalFinished("Traversal aborted.");
                 return;
             }
@@ -61,9 +68,11 @@ void DetectionTraverser::process()
         emit updateProgress(i + 1, realCoordinates.size());
 
         const cv::Point2f& targetPoint = realCoordinates[i];
-        if (targetPoint.y < 18818) { // Your boundary check
-            //LOG_WARNING("Target point (" << targetPoint.x << ", " << targetPoint.y << ") is out of bounds. Skipping.");
-            continue;
+        if (targetPoint.x < MIN_X || targetPoint.x > MAX_X ||
+            targetPoint.y < MIN_Y || targetPoint.y > MAX_Y) {
+            log(QString("Point %1 is out of bound. Skipping!").arg(i + 1), "INFO");
+            //LOG_WARNING("Point " << (i + 1) << " out of bounds: (" << targetPoint.x << ", " << targetPoint.y << "). Skipping.");
+            continue;  // Skip to next point
         }
 
         // Calculate deltas from the *current actual position*
@@ -71,14 +80,13 @@ void DetectionTraverser::process()
         double deltaY = targetPoint.y - globle_vars.current_y;
         double deltaZ = 26650 - globle_vars.current_z; // Constant Z target
 
-        //LOG_INFO("Moving to point " << (i + 1) << "/" << realCoordinates.size());
+        log(QString("Point %1/%2: Moving...").arg(i + 1).arg(realCoordinates.size()), "INFO");
 
         // Use the new BLOCKING move function
         m_xyzStage->move_and_wait(deltaX, 0, 0);
         m_xyzStage->move_and_wait(0, deltaY, 0);
         m_xyzStage->move_and_wait(0, 0, deltaZ);
-        
-        //LOG_INFO("Arrived at point " << (i + 1) << ". Waiting for user adjustment.");
+        log(QString("Arrived at point %1 ...Waiting for user adjustment.").arg(i + 1), "INFO");
         emit waitingForUserAdjustment();
 
         // Pause execution and wait for the user to click "Confirm"

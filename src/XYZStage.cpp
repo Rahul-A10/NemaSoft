@@ -19,7 +19,7 @@ HANDLE XYZStage::getSerial() {
     );
 
     if (hSerial == INVALID_HANDLE_VALUE) {
-        appendLog("Error opening serial port " + QString::fromStdString(port), "CRITICAL");
+        log("Error opening serial port " + QString::fromStdString(port), "CRITICAL");
         return INVALID_HANDLE_VALUE;
     }
 
@@ -28,7 +28,7 @@ HANDLE XYZStage::getSerial() {
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 
     if (!GetCommState(hSerial, &dcbSerialParams)) {
-        appendLog("Failed to get current serial parameters!", "CRITICAL");
+        log("Failed to get current serial parameters!", "CRITICAL");
         CloseHandle(hSerial);
         return INVALID_HANDLE_VALUE;
     }
@@ -39,7 +39,7 @@ HANDLE XYZStage::getSerial() {
     dcbSerialParams.Parity = NOPARITY;
 
     if (!SetCommState(hSerial, &dcbSerialParams)) {
-        appendLog("Could not set serial port parameters!", "CRITICAL");
+        log("Could not set serial port parameters!", "CRITICAL");
         CloseHandle(hSerial);
         return INVALID_HANDLE_VALUE;
     }
@@ -53,7 +53,7 @@ HANDLE XYZStage::getSerial() {
     timeouts.WriteTotalTimeoutMultiplier = 10;
 
     if (!SetCommTimeouts(hSerial, &timeouts)) {
-        appendLog("Could not set serial port timeouts!", "CRITICAL");
+        log("Could not set serial port timeouts!", "CRITICAL");
         CloseHandle(hSerial);
         return INVALID_HANDLE_VALUE;
     }
@@ -67,7 +67,7 @@ void XYZStage::parsePositionResponse(const std::string& response) {
     size_t backtickPos = response.find('`');
 
     if (backtickPos == std::string::npos) {
-        appendLog("No backtick found in response, cannot parse position", "INFO");
+        log("No backtick found in response, cannot parse position", "INFO");
         return;
     }
 
@@ -98,7 +98,7 @@ void XYZStage::parsePositionResponse(const std::string& response) {
             }
         }
         catch (const std::exception& e) {
-            appendLog(QString("Error parsing position token: %1 - %2").arg(QString::fromStdString(token)).arg(e.what()), "INFO");
+            log(QString("Error parsing position token: %1 - %2").arg(QString::fromStdString(token)).arg(e.what()), "INFO");
             break;
         }
     }
@@ -109,13 +109,13 @@ void XYZStage::parsePositionResponse(const std::string& response) {
         globle_vars.current_y = positions[1] / scale.y;
         globle_vars.current_z = positions[2] / scale.z;
 
-        appendLog(QString("Position updated from COM5 - X: %1, Y: %2, Z: %3")
+        log(QString("Position updated from COM5 - X: %1, Y: %2, Z: %3")
             .arg(globle_vars.current_x)
             .arg(globle_vars.current_y)
             .arg(globle_vars.current_z), "INFO");
     }
     else {
-        appendLog(QString("Could not extract 3 position values from response. Found %1 values.").arg(positions.size()), "INFO");
+        log(QString("Could not extract 3 position values from response. Found %1 values.").arg(positions.size()), "INFO");
     }
 }
 
@@ -158,7 +158,7 @@ std::string XYZStage::readResponse(HANDLE hSerial, int maxWaitMs) {
 XYZStage::Position XYZStage::_home() {
     HANDLE hSerial = getSerial();
     if (m_serialHandle == INVALID_HANDLE_VALUE) {
-        appendLog("MOVE FAILED - Returning old position", "CRITICAL");
+        log("MOVE FAILED - Returning old position", "CRITICAL");
         return position;
     }
 
@@ -167,24 +167,24 @@ XYZStage::Position XYZStage::_home() {
         char buffer[256];
         sprintf_s(buffer, "/1aM1f1aM2f1aM3f1R\r\n");
         std::string cmd = buffer;
-        appendLog("Home command SENT: " + QString::fromStdString(cmd), "INFO");
+        log("Home command SENT: " + QString::fromStdString(cmd), "INFO");
         std::this_thread::sleep_for(std::chrono::seconds(10));
         sprintf_s(buffer, "/1aM1N1Z10000R\r\n");
         cmd = buffer;
-        appendLog("Home command SENT: " + QString::fromStdString(cmd), "INFO");
+        log("Home command SENT: " + QString::fromStdString(cmd), "INFO");
         std::this_thread::sleep_for(std::chrono::seconds(10));
         sprintf_s(buffer, "/1aM2N1Z10000R\r\n");
         cmd = buffer;
-        appendLog("Home command SENT: " + QString::fromStdString(cmd), "INFO");
+        log("Home command SENT: " + QString::fromStdString(cmd), "INFO");
         std::this_thread::sleep_for(std::chrono::seconds(10));
         sprintf_s(buffer, "/1aM3N1Z10000R\r\n");
         cmd = buffer;
-        appendLog("Home command SENT: " + QString::fromStdString(cmd), "INFO");
+        log("Home command SENT: " + QString::fromStdString(cmd), "INFO");
         std::this_thread::sleep_for(std::chrono::seconds(10));
         sprintf_s(buffer, "/1z0,0,0R\r\n");
         cmd = buffer;
 
-        appendLog("Home command SENT: " + QString::fromStdString(cmd), "INFO");
+        log("Home command SENT: " + QString::fromStdString(cmd), "INFO");
         // Wait for homing to complete - this is a guess, adjust as needed
         std::this_thread::sleep_for(std::chrono::seconds(10));
         // Send position query command after homing completes
@@ -200,7 +200,11 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
 
     HANDLE hSerial = getSerial();
     if (m_serialHandle == INVALID_HANDLE_VALUE) {
-        appendLog("MOVE FAILED - Returning old position", "CRITICAL");
+        log("MOVE FAILED - Returning old position", "CRITICAL");
+        globle_vars.current_x = globle_vars.current_x + x;
+        globle_vars.current_y = globle_vars.current_y + y;
+        globle_vars.current_z = globle_vars.current_z + z;
+
         return position;
     }
 
@@ -209,7 +213,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     //direction = 'A'; // 'A' for absolute movement
 
 
-    appendLog(QString("trying to move FROM: x=%1, y=%2, z=%3")
+    log(QString("trying to move FROM: x=%1, y=%2, z=%3")
         .arg(globle_vars.current_x)
         .arg(globle_vars.current_y)
         .arg(globle_vars.current_z), "INFO");
@@ -221,11 +225,11 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
 
 
     if (boundx < globle_vars.min_x || boundy < globle_vars.min_y || boundz < globle_vars.min_z) {
-        appendLog("MOVE FAILED - Negative position out of bounds", "CRITICAL");
+        log("MOVE FAILED - Negative position out of bounds", "CRITICAL");
         return position;
     }
     else if (boundx > globle_vars.max_x || boundy > globle_vars.max_y || boundz > globle_vars.max_z) {
-        appendLog("MOVE FAILED - Position out of bounds", "CRITICAL");
+        log("MOVE FAILED - Position out of bounds", "CRITICAL");
         return position;
     }
 
@@ -290,10 +294,10 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     if (m_serialHandle != INVALID_HANDLE_VALUE) {
         DWORD bytesWritten;
         if (!WriteFile(m_serialHandle, cmd.c_str(), static_cast<DWORD>(cmd.length()), &bytesWritten, NULL)) {
-            appendLog("Failed to write to serial port!", "CRITICAL");
+            log("Failed to write to serial port!", "CRITICAL");
         }
         else {
-            appendLog("Move command SENT: " + QString::fromStdString(cmd), "INFO");
+            log("Move command SENT: " + QString::fromStdString(cmd), "INFO");
 
             // Calculate and wait for movement to complete
             if (x_units != 0 || y_units != 0 || z_units != 0) {
@@ -341,10 +345,10 @@ XYZStage::Position XYZStage::getPosition() {
     std::string cmd2 = buffer2;
 
     if (!WriteFile(m_serialHandle, cmd2.c_str(), static_cast<DWORD>(cmd2.length()), &bytesWritten, NULL)) {
-        appendLog("Failed to write position query command!", "CRITICAL");
+        log("Failed to write position query command!", "CRITICAL");
     }
     else {
-        appendLog("Position query command SENT: " + QString::fromStdString(cmd2), "INFO");
+        log("Position query command SENT: " + QString::fromStdString(cmd2), "INFO");
 
         // Read response from position query (cmd2)
         std::string response = readResponse(m_serialHandle, 2000);  // Wait up to 2 seconds
@@ -380,7 +384,7 @@ XYZStage::Position XYZStage::getPosition() {
                 }
 
                 if (count == 3) {
-                    appendLog("COM5 Response: " + QString::fromStdString(cleanResponse), "INFO");
+                    log("COM5 Response: " + QString::fromStdString(cleanResponse), "INFO");
                     // Parse and extract position values
                     parsePositionResponse(response);
                     // Also output to Visual Studio Debug window
@@ -389,17 +393,17 @@ XYZStage::Position XYZStage::getPosition() {
 
                 }
                 else {
-                    appendLog("No response", "INFO");
+                    log("No response", "INFO");
                     OutputDebugStringA("No response\n");
                 }
             }
             else {
-                appendLog("No response", "INFO");
+                log("No response", "INFO");
                 OutputDebugStringA("No response\n");
             }
         }
         else {
-            appendLog("No response", "INFO");
+            log("No response", "INFO");
             OutputDebugStringA("No response\n");
         }
     }
@@ -408,13 +412,13 @@ XYZStage::Position XYZStage::getPosition() {
 
 XYZStage::XYZStage(const std::string& portName)
     : port(portName), m_stopWorker(false) {
-    appendLog(QString("XYZStage initialized to: x=%1, y=%2, z=%3")
+    log(QString("XYZStage initialized to: x=%1, y=%2, z=%3")
         .arg(position.x)
         .arg(position.y)
         .arg(position.z), "INFO");
     m_serialHandle = getSerial();
     if (m_serialHandle != INVALID_HANDLE_VALUE) {
-        appendLog("Querying initial position from stage...", "INFO");
+        log("Querying initial position from stage...", "INFO");
 
         // ?? Avoid deadlock by using a temporary call without locking
         {
@@ -424,7 +428,7 @@ XYZStage::XYZStage(const std::string& portName)
         }
     }
     else {
-        appendLog("Serial connection failed, cannot query initial position.", "CRITICAL");
+        log("Serial connection failed, cannot query initial position.", "CRITICAL");
     }
     // Start the worker thread upon construction
     m_workerThread = std::thread(&XYZStage::worker, this);
@@ -436,7 +440,7 @@ XYZStage::~XYZStage() {
         std::lock_guard<std::mutex> lock(m_queueMutex);
         m_stopWorker = true;
     }
-    appendLog("Stopping XYZStage worker thread...", "INFO");
+    log("Stopping XYZStage worker thread...", "INFO");
     // Notify the condition variable to wake the thread up if it's waiting
     m_condition.notify_one();
 
@@ -452,7 +456,7 @@ void XYZStage::move(double dx, double dy, double dz, double velocity_x, double v
         // Acquire lock to safely add to the queue
         std::lock_guard<std::mutex> lock(m_queueMutex);
         m_commandQueue.push({ dx, dy, dz, velocity_x, velocity_y, velocity_z });
-        appendLog(QString("Queued move command: dx=%1, dy=%2, dz=%3 and notifying the worker")
+        log(QString("Queued move command: dx=%1, dy=%2, dz=%3 and notifying the worker")
             .arg(dx)
             .arg(dy)
             .arg(dz), "INFO");
@@ -465,7 +469,7 @@ void XYZStage::home() {
     {
         //std::lock_guard<std::mutex> lock(m_queueMutex);
         _home();
-        appendLog("Queued home command and notifying the worker", "INFO");
+        log("Queued home command and notifying the worker", "INFO");
     }
     //m_condition.notify_one();
 }
@@ -492,7 +496,7 @@ void XYZStage::worker() {
             // Get the next command from the queue
             currentCommand = m_commandQueue.front();
             m_commandQueue.pop();
-            appendLog(QString("Dequeued move command: dx=%1, dy=%2, dz=%3")
+            log(QString("Dequeued move command: dx=%1, dy=%2, dz=%3")
                 .arg(currentCommand.dx)
                 .arg(currentCommand.dy)
                 .arg(currentCommand.dz), "INFO");
@@ -532,14 +536,8 @@ void XYZStage::move_and_wait(double dx, double dy, double dz, double velocity_x,
         move(dx, dy, dz, velocity_x, velocity_y, velocity_z);
 
         // Now, wait until the worker thread signals completion
-        //appendLog("move_and_wait: Waiting for move to complete...", "INFO");
+        log("move_and_wait: Waiting for move to complete...", "INFO");
         m_syncCondition.wait(lock, [this] { return !m_isWaitingForMoveCompletion.load(); });
-        //appendLog("move_and_wait: Move completed. Proceeding.", "INFO");
-    }
-}
-
-void XYZStage::appendLog(const QString& message, const QString& level) {
-    if (m_logTextEdit) {
-        Logger::appendLog(m_logTextEdit, message, level);
+        log("move_and_wait: Move completed. Proceeding.", "INFO");
     }
 }
