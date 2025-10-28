@@ -1,5 +1,4 @@
-
-
+#include "logger.h"
 #include "ZoomableGraphicsView.h"
 #include <QPainter>
 #include <QFrame>

@@ -17,7 +17,8 @@
 #include "XYZStage.h"
 #include "DetectionTraverser.h"
 #include <QTextEdit>
-
+#include "logger.h"
+#include "logdisplay.h"
 struct cameraOp
 {
     QThread* thrd;
@@ -131,8 +132,9 @@ public:
     void updateMacroImageDisplay();
     //void drawAnnotationBox(int index);
     bool isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight);
-    void appendLog(const QString& message, const QString& level = "INFO");
+    void log(const QString& message, const QString& level = "INFO");
 	void onTriversePath();
+    void setupUI();
 
 private:
 
@@ -140,7 +142,7 @@ private:
     // Transformation methods
     cv::Mat calculateTransformationMatrix(const std::vector<cv::Point2f>& imagePoints,
         const std::vector<cv::Point2f>& realPoints);
-
+    LogDisplay* m_logDisplay;
     // private class members
     cv::Mat m_transformMatrix;
     QVector<YoloAnnotation> m_macroAnnotations;

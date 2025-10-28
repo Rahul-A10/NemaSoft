@@ -1,7 +1,7 @@
 #include "XYZStage.h"
 #include "utils.h"
 #include "mainwindow.h"
-
+#include "logger.h"
 // Global variable definition
 GlobalVars globle_vars;
 

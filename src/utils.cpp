@@ -1,5 +1,5 @@
 #include "utils.h"
-
+#include "logger.h"
 #include <QFile>
 #include <QTextStream>
 #include <QDateTime>
@@ -21,102 +21,10 @@ void set_fpsDebug_flag(bool val) { fpsDebug = val; }
 bool get_fpsDebug_flag() { return fpsDebug; }
 
 
-//Logger class
-
-Q_LOGGING_CATEGORY(logApp, "myapp.application")
-
-// Static members for logger configuration
-static QString s_logFileName = "application.log";
-static QString s_logFilePath = "logs/application.log";
-static qint64 s_maxFileSize = 1 * 1024 * 1024; // 1MB default
-static QtMsgType s_minLogLevel = QtDebugMsg;
-static bool s_consoleOutput = true;
-static QMutex s_logMutex;
-static QFile* s_logFile = nullptr;
-static bool s_initialized = false;
-
-// Custom message handler that writes to file
-void Logger::fileMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
-{
-    // Create logs directory if it doesn't exist
-    QDir().mkpath("logs");
-
-    static QFile file("logs/application.log");
-    static bool fileOpened = file.open(QIODevice::WriteOnly | QIODevice::Append);
-
-    if (fileOpened) {
-        QTextStream stream(&file);
-
-        // Format timestamp
-        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-
-        // Convert message type to string
-        QString typeStr;
-        switch (type) {
-        case QtDebugMsg:    typeStr = "DEBUG"; break;
-        case QtInfoMsg:     typeStr = "INFO"; break;
-        case QtWarningMsg:  typeStr = "WARNING"; break;
-        case QtCriticalMsg: typeStr = "CRITICAL"; break;
-        case QtFatalMsg:    typeStr = "FATAL"; break;
-        }
-
-        // Write formatted message
-        stream << QString("[%1] [%2] [%3] %4")
-            .arg(timestamp, typeStr, context.category, msg) << Qt::endl;
-        stream.flush();
-    }
-}
-
-
-void Logger::initialize()
-{
-    QMutexLocker locker(&s_logMutex);
-
-    if (s_initialized) {
-        return; // Already initialized
-    }
-
-    // Create logs directory
-    QDir().mkpath("logs");
-
-    // Remove existing log file if it exists
-    QFile existingFile(s_logFilePath);
-    if (existingFile.exists()) {
-        existingFile.remove();
-    }
-
-    // Create and open log file
-    s_logFile = new QFile(s_logFilePath);
-    if (!s_logFile->open(QIODevice::WriteOnly | QIODevice::Append)) {
-        delete s_logFile;
-        s_logFile = nullptr;
-        qWarning() << "Failed to open log file:" << s_logFilePath;
-        return;
-    }
-
-    // Install our custom message handler
-    qInstallMessageHandler(fileMessageHandler);
-    s_initialized = true;
-}
-
-void Logger::cleanup()
-{
-    QMutexLocker locker(&s_logMutex);
-
-    if (s_logFile) {
-        s_logFile->close();
-        delete s_logFile;
-        s_logFile = nullptr;
-    }
-
-    // Restore default Qt message handler
-    qInstallMessageHandler(nullptr);
-    s_initialized = false;
-}
 
 
 std::vector<int> checkAvailableCameraConnections() {
-    LOG_INFO("Searching for available camera indices...");
+    Logger::info("Searching for available camera indices...");
 
 	bool noneFound = true;
 	std::vector<int> availableCameras;
@@ -140,15 +48,12 @@ std::vector<int> checkAvailableCameraConnections() {
 				availableCameras.push_back(i);
             }
 
-            LOG_INFO("Camera" << i << "opened" << (frame.empty() ? "but frame empty" : "successfully"));
+            Logger::info(QString("Camera %1 opened %2 but frame empty: successfully").arg(i).arg(frame.empty()));
 
             cap.release();
         }
     }
 
-	//assert(!noneFound && "No cameras found at indices 0-9. Please connect a camera and try again.");
-
-    // check if not in cam debug mode, then we expect min of 3 cameras
     if (!get_camDebug_flag())
         assert(availableCameras.size() >= 3 && "expected number of camera is less than 3.");
 
@@ -195,41 +100,6 @@ cv::Mat cropInputImage(const cv::Mat& input) {
     return cropped;
 }
 
-void Logger::appendLog(QTextEdit* logTextEdit, const QString& message, const QString& level) {
-    if (!logTextEdit) return;
-
-    QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-    QString colorCode;
-
-    // Color coding based on log level
-    if (level == "ERROR" || level == "CRITICAL") {
-        colorCode = "#ff6b6b";  // Red
-    }
-    else if (level == "WARNING") {
-        colorCode = "#ffd93d";  // Yellow
-    }
-    else if (level == "INFO") {
-        colorCode = "#6bcf7f";  // Green
-    }
-    else {
-        colorCode = "#d4d4d4";  // White
-    }
-
-    QString formattedMessage = QString("<span style='color: #888;'>[%1]</span> "
-        "<span style='color: %2;'>[%3]</span> "
-        "<span style='color: #d4d4d4;'>%4</span>")
-        .arg(timestamp)
-        .arg(colorCode)
-        .arg(level)
-        .arg(message);
-
-    logTextEdit->append(formattedMessage);
-
-    // Auto-scroll to bottom
-    QTextCursor cursor = logTextEdit->textCursor();
-    cursor.movePosition(QTextCursor::End);
-    logTextEdit->setTextCursor(cursor);
-}
 
 cv::Scalar getColorForClass(int classId) {
     static std::vector<cv::Scalar> colors = {

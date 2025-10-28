@@ -21,6 +21,8 @@
 #include <QDateTime>
 #include "XYZStage.h"
 #include <opencv2/opencv.hpp>
+#include <QDockWidget>
+#include <logger.h>
 
 // or more specific includes:
 #include <opencv2/core.hpp>
@@ -31,7 +33,10 @@
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
-    // Set dark theme palette
+    //setupUI();
+
+
+
     QWidget* centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
 
@@ -42,7 +47,7 @@ MainWindow::MainWindow(QWidget* parent)
     int mainHeight = this->height();
 
     m_xyzStage.setLogCallback([this](const QString& message, const QString& level) {
-        this->appendLog(message, level);
+        this->log(message, level);
         });
     
     QHBoxLayout* controlLayout = new QHBoxLayout();
@@ -196,6 +201,7 @@ MainWindow::~MainWindow() {
     }
     //delete m_traverser;
 }
+
 
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
@@ -397,20 +403,21 @@ QGroupBox* MainWindow::setupPositionUI() {
     leftColumnLayout->addStretch(); // Push everything to the top
 
     // Right column - Log window
+    // Right column - Log window
     QLabel* logLabel = new QLabel("Logs:");
-    m_logTextEdit = new QTextEdit();
-    m_logTextEdit->setReadOnly(true);
-    m_logTextEdit->setStyleSheet("QTextEdit { background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas, monospace; }");
+    m_logDisplay = new LogDisplay(this);  // Use the new LogDisplay widget
 
     QPushButton* clearLogBtn = new QPushButton("Clear Logs");
     connect(clearLogBtn, &QPushButton::clicked, this, [this]() {
         m_logTextEdit->clear();
         });
 
+    
+
     // Right column layout
     QVBoxLayout* rightColumnLayout = new QVBoxLayout();
     rightColumnLayout->addWidget(logLabel);
-    rightColumnLayout->addWidget(m_logTextEdit);
+    rightColumnLayout->addWidget(m_logDisplay);  // Add the LogDisplay directly
     rightColumnLayout->addWidget(clearLogBtn);
 
     // Horizontal layout to combine both columns
@@ -429,6 +436,9 @@ QGroupBox* MainWindow::setupPositionUI() {
 
 
 QGroupBox* MainWindow::setupControlUI() {
+    // Test logging
+    Logger::info(QString("Log Started"));
+
     QVBoxLayout* controlLayout = new QVBoxLayout();
 
     m_arducamOp.cameraBtn = new QPushButton("Start Camera");
@@ -474,17 +484,14 @@ QGroupBox* MainWindow::setupControlUI() {
 cv::Mat MainWindow::calculateTransformationMatrix(const std::vector<cv::Point2f>& imagePoints,
     const std::vector<cv::Point2f>& realPoints) {
     if (imagePoints.size() != 3 || realPoints.size() != 3) {
-        appendLog("Exactly 3 points required for transformation matrix calculation", "WARNING");
+        log("Exactly 3 points required for transformation matrix calculation", "WARNING");
         return cv::Mat();
     }
 
     // Calculate affine transformation matrix using 3 point pairs
     cv::Mat transformMatrix = cv::getAffineTransform(imagePoints, realPoints);
 
-    appendLog("Transformation matrix calculated successfully", "INFO");
-    std::stringstream ss;
-    ss << "Affine Matrix is: " << transformMatrix;
-    appendLog(QString::fromStdString(ss.str()), "INFO");
+    //log("Transformation matrix calculated successfully", "INFO");
     return transformMatrix;
 }
 
@@ -560,7 +567,7 @@ void MainWindow::updateFrame(const QImage& img, int camType) {
     }
 
     default:
-        appendLog(QString("Unknown camera type received in updateFrame: %1").arg(camType), "WARNING");
+        log(QString("Unknown camera type received in updateFrame: %1").arg(camType), "WARNING");
         break;
     }
     
@@ -590,7 +597,7 @@ void MainWindow::onStartArducam() {
     clearMacroAnnotations();
     if (m_arducamOp.thrd) {
         // Already running - stop!
-        appendLog("stopping arducam", "INFO");
+        log("stopping arducam", "INFO");
         m_arducamOp.toggleCamera();
         {
             QMutexLocker locker(&m_frameMutex);
@@ -608,7 +615,7 @@ void MainWindow::onStartArducam() {
         return;
     }
 
-    appendLog("starting arducam","INFO");
+    log("starting arducam","INFO");
 
     m_arducamOp.thrd = new QThread(this);
 
@@ -634,7 +641,7 @@ void MainWindow::onStartArducam() {
 void MainWindow::onStartDuocam() {
     if (m_microCam1Op.thrd || m_microCam2Op.thrd) {
         // Already running - stop!
-        appendLog("stopping Duo cams", "INFO");
+        log("stopping Duo cams", "INFO");
         m_microCam1Op.toggleCamera();
         m_microCam2Op.toggleCamera();
         {
@@ -682,7 +689,7 @@ void MainWindow::onStartDuocam() {
 
 void MainWindow::onCaptureMacroImg() {
     if (!m_arducamOp.thrd) {
-        appendLog("Arducam thread is not running. Cannot capture image.","WARNING");
+        log("Arducam thread is not running. Cannot capture image.","WARNING");
         return;
     }
 
@@ -709,10 +716,10 @@ void MainWindow::onCaptureMacroImg() {
     // 3. Save using OpenCV imwrite
     if (!m_currentMacroImg.empty()) {
         cv::imwrite(filePath.toStdString(), m_currentMacroImg);
-        appendLog(QString("Macro image saved to: %1").arg(filePath.toStdString()));
+        log(QString("Macro image saved to: %1").arg(filePath.toStdString()));
     }
     else {
-        appendLog("Captured macro image is empty. Not saving.", "WARNING");
+        log("Captured macro image is empty. Not saving.", "WARNING");
     }
     
     
@@ -732,7 +739,7 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
     // save the output frame to a file
     cv::imwrite("output.jpg", frame);
 
-    appendLog("Showing inference result","INFO");
+    log("Showing inference result","INFO");
 
     cv::Mat resized;
     cv::resize(frame, resized, cv::Size(3840, 2160));
@@ -781,13 +788,13 @@ void MainWindow::setupTransformationMatrix() {
     else {
         matrixStr = "Matrix is empty";
     }
-    appendLog(QString("Affine Matrix is: %1").arg(matrixStr), "INFO");
+    log(QString("Affine Matrix is: %1").arg(matrixStr), "INFO");
 
     if (!m_transformMatrix.empty()) {
-        appendLog("Transformation matrix initialized successfully","INFO");
+        log("Transformation matrix initialized successfully","INFO");
     }
     else {
-        appendLog("Failed to initialize transformation matrix", "INFO");
+        log("Failed to initialize transformation matrix", "INFO");
     }
 }
 
@@ -796,7 +803,7 @@ void MainWindow::setupTransformationMatrix() {
 void MainWindow::onPredictMacroImg() {
     // Check if manual annotations already exist
     if (!m_macroAnnotations.isEmpty()) {
-        appendLog("Manual annotations detected. Using existing annotations for path traversal.", "INFO");
+        log("Manual annotations detected. Using existing annotations for path traversal.", "INFO");
 
         // Filter annotations with class ID 1 and convert to cv::Rect
         std::vector<cv::Rect> manualBoxes;
@@ -829,7 +836,7 @@ void MainWindow::onPredictMacroImg() {
         }
 
 
-        appendLog(QString("Passing %1 manual annotations to InferenceWorker").arg(manualBoxes.size()), "INFO");
+        log(QString("Passing %1 manual annotations to InferenceWorker").arg(manualBoxes.size()), "INFO");
 
         // Create InferenceWorker with manual boxes
         m_macroImgInference.thrd = new QThread(this);
@@ -843,24 +850,24 @@ void MainWindow::onPredictMacroImg() {
     }
 
     if (!m_arducamOp.thrd || m_macroImgInference.thrd) {
-        appendLog("Arducam thread is not running or inference is already in progress.", "WARNING");
+        log("Arducam thread is not running or inference is already in progress.", "WARNING");
         return;
     }
     if (!m_arducamOp.camWorker->getCaptureImg()) {
-        appendLog("No captured frame to process. Please capture an image first.", "WARNING");
+        log("No captured frame to process. Please capture an image first.", "WARNING");
         return;
     }
 
     std::string modelPath = "deps/models/yolov11n_trainedv1.onnx";
     if (!std::filesystem::exists(modelPath)) {
-        appendLog(QString("Model file does not exist: %1").arg(QString::fromStdString(modelPath)), "CRITICAL");
+        log(QString("Model file does not exist: %1").arg(QString::fromStdString(modelPath)), "CRITICAL");
         return;
     }
 
     m_arducamOp.camWorker->stop();
 
     {
-        appendLog("Starting inference on captured macro image...", "INFO");
+        log("Starting inference on captured macro image...", "INFO");
         m_macroImgInference.thrd = new QThread(this);
         m_macroImgInference.infWorker = new InferenceWorker(m_currentMacroImg.cols, m_currentMacroImg.rows, m_currentMacroImg);
         m_macroImgInference.infWorker->moveToThread(m_macroImgInference.thrd);
@@ -875,13 +882,13 @@ void MainWindow::onPredictMacroImg() {
 
 
 void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imagePos) {
-    appendLog(QString("Arducam clicked - Scene:%1 Image:%2")
+    log(QString("Arducam clicked - Scene:%1 Image:%2")
         .arg(QString::number(scenePos.x()) + "," + QString::number(scenePos.y()))
         .arg(QString::number(imagePos.x()) + "," + QString::number(imagePos.y())), "INFO");
     
     // Check if we have a captured macro image
     if (m_currentMacroImg.empty()) {
-        appendLog("No macro image captured yet", "INFO");
+        log("No macro image captured yet", "INFO");
         return;
     }
     
@@ -892,7 +899,7 @@ void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imageP
     // Check if click is inside any existing bounding box (for deletion)
     for (int i = m_macroAnnotations.size() - 1; i >= 0; --i) {
         if (isClickInsideBox(imagePos, m_macroAnnotations[i], imageWidth, imageHeight)) {
-            appendLog(QString("Deleting annotation at index:%1").arg(i), "INFO");
+            log(QString("Deleting annotation at index:%1").arg(i), "INFO");
             m_macroAnnotations.removeAt(i);
             updateMacroImageDisplay();
             return;
@@ -919,7 +926,7 @@ void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imageP
     
     m_macroAnnotations.append(annotation);
     
-    appendLog(QString("Manual annotation added - Class: %1, Center: (%2, %3), Size: (%4, %5)")
+    log(QString("Manual annotation added - Class: %1, Center: (%2, %3), Size: (%4, %5)")
         .arg(classId)
         .arg(normalizedX)
         .arg(normalizedY)
@@ -1002,18 +1009,18 @@ void MainWindow::updateMacroImageDisplay() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 void MainWindow::onMicroCam1Clicked(const QPointF& scenePos, const QPointF& imagePos) {
-    appendLog(QString("MicroCam1 clicked - Scene: (%1, %2), Image: (%3, %4)").arg(scenePos.x()).arg(scenePos.y()).arg(imagePos.x()).arg(imagePos.y()), "INFO");
+    log(QString("MicroCam1 clicked - Scene: (%1, %2), Image: (%3, %4)").arg(scenePos.x()).arg(scenePos.y()).arg(imagePos.x()).arg(imagePos.y()), "INFO");
 }
 
 
 
 void MainWindow::onMicroCam2Clicked(const QPointF& scenePos, const QPointF& imagePos) {
-    appendLog(QString("MicroCam2 clicked - Scene: (%1, %2), Image: (%3, %4)").arg(scenePos.x()).arg(scenePos.y()).arg(imagePos.x()).arg(imagePos.y()), "INFO");
+    log(QString("MicroCam2 clicked - Scene: (%1, %2), Image: (%3, %4)").arg(scenePos.x()).arg(scenePos.y()).arg(imagePos.x()).arg(imagePos.y()), "INFO");
 }
 
 void MainWindow::clearMacroAnnotations() {
     m_macroAnnotations.clear();
-    appendLog("Cleared all macro annotations.", "INFO");
+    log("Cleared all macro annotations.", "INFO");
 }
 int MainWindow::getSelectedMacroId() const{
     int classId = m_macroComboBox->currentData().toInt();
@@ -1043,7 +1050,7 @@ void MainWindow::onCaptureMacroData() {
         timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
         QString filePath = folderPath + "/" + timestamp + ".png";
         cv::imwrite(filePath.toStdString(), m_currentMacroImg);
-        appendLog("Macro image saved to: " + filePath, "INFO");
+        log("Macro image saved to: " + filePath, "INFO");
 
         // Save YOLO annotations
         QString labelsFolder = QDir(QCoreApplication::applicationDirPath()).filePath("macro_img_data/labels");
@@ -1067,21 +1074,21 @@ void MainWindow::onCaptureMacroData() {
             }
 
             file.close();
-            appendLog(QString("Saved %1 annotations to: %2").arg(m_macroAnnotations.size()).arg(labelFilePath), "INFO");
+            log(QString("Saved %1 annotations to: %2").arg(m_macroAnnotations.size()).arg(labelFilePath), "INFO");
         }
         else {
-            appendLog("Failed to create label file: " + labelFilePath, "WARNING");
+            log("Failed to create label file: " + labelFilePath, "WARNING");
         }
 
         // Clear annotations after saving
     }
     else {
-        appendLog("Captured macro image is empty. Not saving.", "WARNING");
+        log("Captured macro image is empty. Not saving.", "WARNING");
     }
 }
 void MainWindow::onCaptureMicroData() {
     if (!m_microCam1Op.thrd || !m_microCam2Op.thrd) {
-        appendLog("Duo cams are not running. Cannot capture data.", "WARNING");
+        log("Duo cams are not running. Cannot capture data.", "WARNING");
         return;
     }
     m_microCam1Op.camWorker->setCaptureImg(true);
@@ -1111,7 +1118,7 @@ void MainWindow::onCaptureMicroData() {
 		QString filePath2 = folderPath2 + "/" + "cam2_" + timestamp + ".png";
 		cv::imwrite(filePath2.toStdString(), m_currentMicroImg2);
 
-        appendLog("Micro image saved to: " + filePath1, "INFO");
+        log("Micro image saved to: " + filePath1, "INFO");
 
         // Save current stage position
         QString labelsFolder1 = QDir(QCoreApplication::applicationDirPath()).filePath("micro_img_data/cam1_labels");
@@ -1135,10 +1142,10 @@ void MainWindow::onCaptureMicroData() {
             // Write your position data here
             // out << positionData;
             l_file1.close();
-            appendLog("Position data saved to: " + positionFilePath1, "INFO");
+            log("Position data saved to: " + positionFilePath1, "INFO");
         }
         else {
-            appendLog("Failed to create position file: " + positionFilePath1, "WARNING");
+            log("Failed to create position file: " + positionFilePath1, "WARNING");
         }
 		//repeat for cam 2
         QFile l_file2(positionFilePath2);
@@ -1147,14 +1154,14 @@ void MainWindow::onCaptureMicroData() {
             // Write your position data here
             // out << positionData;
             l_file2.close();
-            appendLog("Position data saved to: " + positionFilePath2, "INFO");
+            log("Position data saved to: " + positionFilePath2, "INFO");
         }
         else {
-            appendLog("Failed to create position file: " + positionFilePath2, "WARNING");;
+            log("Failed to create position file: " + positionFilePath2, "WARNING");;
         }
     }
     else {
-        appendLog("Captured macro image is empty. Not saving.", "WARNING");
+        log("Captured macro image is empty. Not saving.", "WARNING");
     }
 }
 
@@ -1163,7 +1170,7 @@ void MainWindow::onCaptureMicroData() {
 void MainWindow::onCaptureMicroImg() {
     // ====== MicroCam1 ======
     if (!m_microCam1Op.thrd) {
-        appendLog("First microCam is not running. Cannot capture image.", "WARNING");
+        log("First microCam is not running. Cannot capture image.", "WARNING");
         return;
     }
     m_microCam1Op.camWorker->setCaptureImg(true);
@@ -1179,16 +1186,16 @@ void MainWindow::onCaptureMicroImg() {
         QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
         QString filePath1 = folderPath1 + "/" + timestamp + "_cam1.png";
         cv::imwrite(filePath1.toStdString(), m_currentMicroImg1);
-        appendLog("MicroCam1 image saved to: " + filePath1, "INFO");
+        log("MicroCam1 image saved to: " + filePath1, "INFO");
 		
     }
     else {
-        appendLog("MicroCam1 captured image is empty. Not saving.", "WARNING");
+        log("MicroCam1 captured image is empty. Not saving.", "WARNING");
     }
 
     // ====== MicroCam2 ======
     if (!m_microCam2Op.thrd) {
-        appendLog("Second microCam is not running. Cannot capture image.", "WARNING");
+        log("Second microCam is not running. Cannot capture image.", "WARNING");
         return;
     }
     m_microCam2Op.camWorker->setCaptureImg(true);
@@ -1204,10 +1211,10 @@ void MainWindow::onCaptureMicroImg() {
         QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
         QString filePath2 = folderPath2 + "/" + timestamp + "_cam2.png";
         cv::imwrite(filePath2.toStdString(), m_currentMicroImg2);
-        appendLog("MicroCam2 image saved to: " + filePath2, "INFO");
+        log("MicroCam2 image saved to: " + filePath2, "INFO");
     }
     else {
-        appendLog("MicroCam2 captured image is empty. Not saving.", "WARNING");
+        log("MicroCam2 captured image is empty. Not saving.", "WARNING");
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(2000))); // wait for 300 ms to ensure images are saved properly before restarting the cams
@@ -1220,11 +1227,11 @@ void MainWindow::onCaptureMicroImg() {
 
 }
 void MainWindow::onPredictMicroImg() {
-	appendLog("Predict Micro Image button clicked.", "INFO");
+	log("Predict Micro Image button clicked.", "INFO");
 }
 
 void MainWindow::onTraversalStarted() {
-    //LOG_INFO("UI received traversalStarted signal. Disabling controls.");
+    Logger::info("UI received traversalStarted signal. Disabling controls.");
     setMovementControlsEnabled(false);
     m_goToPositionBtn->setEnabled(false);
     m_confirmAdjustmentBtn->setEnabled(false);
@@ -1233,7 +1240,7 @@ void MainWindow::onTraversalStarted() {
 }
 
 void MainWindow::onWaitingForUser() {
-    //LOG_INFO("UI received waitingForUserAdjustment signal. Enabling adjustment controls.");
+    Logger::info("UI received waitingForUserAdjustment signal. Enabling adjustment controls.");
     // NOW enable controls for fine-tuning
     setMovementControlsEnabled(true);
     m_confirmAdjustmentBtn->setEnabled(true);
@@ -1241,7 +1248,7 @@ void MainWindow::onWaitingForUser() {
 
 void MainWindow::onConfirmAdjustmentClicked() {
 
-    //LOG_INFO("User confirmed adjustment. Capturing images and proceeding.");
+    Logger::info("User confirmed adjustment. Capturing images and proceeding.");
 
 
     // First, disable controls again so user can't move during capture/next move
@@ -1252,7 +1259,7 @@ void MainWindow::onConfirmAdjustmentClicked() {
 
     //onCaptureMicroImg();
 
-    //LOG_INFO("move_and_wait: Move completed. Proceeding.");
+    Logger::info("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
 }
@@ -1262,7 +1269,7 @@ void MainWindow::onHomeClicked() {
 }
 
 void MainWindow::onTraversalFinished(const QString& message) {
-    //LOG_INFO("UI received traversalFinished signal: " << message.toStdString());
+    Logger::info(QString("UI received traversalFinished signal: %1").arg(message));
 
     // Re-enable all controls
     setMovementControlsEnabled(true);
@@ -1280,24 +1287,24 @@ void MainWindow::onTraversalFinished(const QString& message) {
 }
 
 void MainWindow::onTriversePath() {
-        appendLog("Path button clicked.", "INFO");
+        log("Path button clicked.", "INFO");
         if (m_transformMatrix.empty()) {
-            appendLog("Transformation matrix not set. Please calculate transformation matrix first.", "WARNING");
-            appendLog("Use calculateTransformationMatrix() with 3 corresponding image and real coordinate points.","INFO");
+            log("Transformation matrix not set. Please calculate transformation matrix first.", "WARNING");
+            log("Use calculateTransformationMatrix() with 3 corresponding image and real coordinate points.","INFO");
             return;
         }
 
         if (m_macroImgPath.empty()) {
-            appendLog("No detected objects in macro image path. Please capture and predict macro image first.", "WARNING");
+            log("No detected objects in macro image path. Please capture and predict macro image first.", "WARNING");
             return;
         }
 
         /*if (m_xyzStage.getSerialHandle() == INVALID_HANDLE_VALUE){
-            appendLog("XYZ Stage not connected. Please connect the stage first.","WARNING" );
+            log("XYZ Stage not connected. Please connect the stage first.","WARNING" );
             return;
         }*/
 
-        appendLog("Starting traversal of detected macro image path...", "INFO");
+        log("Starting traversal of detected macro image path...", "INFO");
 
         m_traverser = new DetectionTraverser(&m_xyzStage);
         m_traverserThread = new QThread(this);
@@ -1309,7 +1316,7 @@ void MainWindow::onTriversePath() {
 
         // Connect signals from the worker to slots in the main window
         connect(m_traverserThread, &QThread::started, m_traverser, &DetectionTraverser::process);
-        connect(m_traverser, &DetectionTraverser::logMessage, this, &MainWindow::appendLog);
+        connect(m_traverser, &DetectionTraverser::logMessage, this, &MainWindow::log);
         connect(m_traverser, &DetectionTraverser::traversalStarted, this, &MainWindow::onTraversalStarted);
         connect(m_traverser, &DetectionTraverser::waitingForUserAdjustment, this, &MainWindow::onWaitingForUser);
         connect(m_traverser, &DetectionTraverser::traversalFinished, this, &MainWindow::onTraversalFinished);
@@ -1321,7 +1328,7 @@ void MainWindow::onTriversePath() {
 }
 
 void MainWindow::onAbortPathClicked() {
-    appendLog("Abort button clicked.", "INFO");
+    log("Abort button clicked.", "INFO");
     if (m_traverser) {
         // Use invokeMethod for thread safety
         QMetaObject::invokeMethod(m_traverser, "abortTraversal", Qt::QueuedConnection);
@@ -1330,7 +1337,7 @@ void MainWindow::onAbortPathClicked() {
     m_predictMicroImg->setEnabled(true);
 }
 void MainWindow::onGoToPosition1() {
-    appendLog("Move to Input Position 1", "INFO");
+    log("Move to Input Position 1", "INFO");
     double x = m_x1->text().toDouble();
     double y = m_y1->text().toDouble();
     double z = m_z1->text().toDouble();
@@ -1340,91 +1347,112 @@ void MainWindow::onGoToPosition1() {
 }
 // movement slots
 void MainWindow::onLeftFastClicked() {
-    appendLog("Move Left Fast", "INFO");
+    log("Move Left Fast", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(-10.0 * stepValue, 0.0, 0.0);
 }
 void MainWindow::onLeftSlowClicked() {
-    appendLog("Move Left Slow", "INFO");
+    log("Move Left Slow", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(-stepValue, 0.0, 0.0);
 }
 void MainWindow::onRightFastClicked() {
-    appendLog("Move Right Fast", "INFO");
+    log("Move Right Fast", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(10.0 * stepValue, 0.0, 0.0);
 }
 void MainWindow::onRightSlowClicked() {
-    appendLog("Move Right Slow", "INFO");
+    log("Move Right Slow", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(stepValue, 0.0, 0.0);
 }
 void MainWindow::onUpFastClicked() {
-    appendLog("Move Up Fast", "INFO");
+    log("Move Up Fast", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(0.0, -10.0 * stepValue, 0.0);
 }
 void MainWindow::onUpSlowClicked() {
-    appendLog("Move Up Slow", "INFO");
+    log("Move Up Slow", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(0.0, -stepValue, 0.0);
 }
 void MainWindow::onDownFastClicked() {
-    appendLog("Move Down Fast", "INFO");
+    log("Move Down Fast", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(0.0, 10.0 * stepValue, 0.0);
 }
 void MainWindow::onDownSlowClicked() {
-    appendLog("Move Down Slow", "INFO");
+    log("Move Down Slow", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(0.0, stepValue, 0.0);
 }
 void MainWindow::onZUpClicked() {
-    appendLog("Move Z Up", "INFO");
+    log("Move Z Up", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(0.0, 0.0, stepValue);
 }
 void MainWindow::onZUpFastClicked() {
-    appendLog("Move Z Up Fast", "INFO");
+    log("Move Z Up Fast", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(0.0, 0.0, 10.0 * stepValue);
 }
 void MainWindow::onZDownClicked() {
-    appendLog("Move Z Down", "INFO");
+    log("Move Z Down", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(0.0, 0.0, -stepValue);
 }
 void MainWindow::onZDownFastClicked() {
-    appendLog("Move Z Down Fast", "INFO");
+    log("Move Z Down Fast", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(0.0, 0.0, -10.0 * stepValue);
 }
 void MainWindow::onSlant1Clicked() {
-    appendLog("Move ↖", "INFO");
+    log("Move ↖", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(-10.0 * stepValue, -10.0 * stepValue, 0.0);
 }
 void MainWindow::onSlant2Clicked() {
-    appendLog("Move ↗", "INFO");
+    log("Move ↗", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(10.0 * stepValue, 0.0, 0.0);
     m_xyzStage.move(0.0, -10.0 * stepValue, 0.0);
 }
 void MainWindow::onSlant3Clicked() {
-    appendLog("Move ↘", "INFO");
+    log("Move ↘", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(10.0 * stepValue, 10.0 * stepValue, 0.0);
 }
 void MainWindow::onSlant4Clicked() {
-    appendLog("Move ↙", "INFO");
+    log("Move ↙", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
     m_xyzStage.move(-10.0 * stepValue, 0.0, 0.0);
     m_xyzStage.move(0.0, 10.0 * stepValue, 0.0);
 }
 void MainWindow::onResumePathClicked() {
     this->pause = false;
-    appendLog("Traversal will resume shortly.", "INFO");
+    log("Traversal will resume shortly.", "INFO");
 }
-void MainWindow::appendLog(const QString& message, const QString& level) {
-    Logger::appendLog(m_logTextEdit, message, level);
+void MainWindow::log(const QString& message, const QString& level) {
+    try {
+        if (level == "ERROR" || level == "CRITICAL") {
+            Logger::error(message);
+        }
+        else if (level == "WARNING") {
+            Logger::warning(message);
+        }
+        else if (level == "DEBUG") {
+            Logger::debug(message);
+        }
+        else {
+            Logger::info(message);
+        }
+    }
+    catch (const std::exception& e) {
+        // Handle standard exceptions
+        qDebug() << "Logging failed with exception:" << e.what();
+    }
+    catch (...) {
+        // Handle any other exceptions
+        qDebug() << "Logging failed with an unknown exception.";
+    }
 }

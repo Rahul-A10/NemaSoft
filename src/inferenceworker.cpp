@@ -1,6 +1,6 @@
 #include "inferenceworker.h"
-#include "inferenceworker.h"
 #include "utils.h"
+#include "logger.h"
 
 InferenceWorker::InferenceWorker(int frameWidth, int frameHeight, cv::Mat& img) {
     m_frameWidth = frameWidth;
@@ -20,17 +20,17 @@ void InferenceWorker::predictWithManualBoxes() {
     QMutexLocker locker(&m_mutex);
 
     if (m_inputFrame.empty()) {
-        LOG_WARNING("Input frame is empty. Cannot process manual annotations.");
+        Logger::warning("Input frame is empty. Cannot process manual annotations.");
         return;
     }
 
     if (m_manualBoxes.empty()) {
-        LOG_WARNING("No manual boxes provided.");
+        Logger::warning("No manual boxes provided.");
         emit frameProcessed(m_inputFrame, {});
         return;
     }
 
-    LOG_INFO("Processing " << m_manualBoxes.size() << " manual annotations");
+    Logger::info(QString("Processing %1 manual annotations").arg(m_manualBoxes.size()));
 
     // Draw boxes on the image
     for (const auto& box : m_manualBoxes) {
@@ -89,11 +89,11 @@ void InferenceWorker::initializeONNXRuntime() {
         m_inputHeight = 640; //m_inputShape[2];
         m_inputWidth = 640; //m_inputShape[3];
         
-        LOG_INFO("ONNX Runtime initialized successfully with CPU and " << std::thread::hardware_concurrency() << "threads");
-        LOG_INFO("Input shape: " << m_inputShape[0] << "x" << m_inputShape[1] << "x" << m_inputShape[2] << "x" << m_inputShape[3]);
+        Logger::info(QString("ONNX Runtime initialized successfully with CPU and %1 threads").arg(std::thread::hardware_concurrency()));
+        Logger::info(QString("Input shape: %1x%2x%3x%4").arg(m_inputShape[0]).arg(m_inputShape[1]).arg(m_inputShape[2]).arg(m_inputShape[3]));
         
     } catch (const Ort::Exception& e) {
-        LOG_CRITICAL("ONNX Runtime initialization failed: " << e.what());
+        Logger::critical(QString("ONNX Runtime initialization failed: %1").arg(e.what()));
         throw std::runtime_error("Failed to initialize ONNX Runtime");
     }
 }
@@ -335,7 +335,7 @@ void InferenceWorker::runModel(cv::Mat& input) {
         // Preprocess image
 		START_TIMER(preprocess);
         std::vector<float> inputData = preprocessImage(input);
-		END_TIMER(preprocess);
+        END_TIMER(preprocess);
         
         // Create input tensor
         std::vector<int64_t> inputShape = {1, 3, m_inputHeight, m_inputWidth};
@@ -357,7 +357,7 @@ void InferenceWorker::runModel(cv::Mat& input) {
 		END_TIMER(postprocess);
         
     } catch (const Ort::Exception& e) {
-        LOG_CRITICAL("ONNX Runtime inference failed: " << e.what());
+        Logger::critical(QString("ONNX Runtime inference failed: %1").arg(e.what()));
     }
 }
 
@@ -395,13 +395,13 @@ std::vector<cv::Rect> InferenceWorker::runBatchedModel(cv::Mat& input) {
 		return ret;
         
     } catch (const Ort::Exception& e) {
-        LOG_CRITICAL("ONNX Runtime inference failed: " << e.what());
+        Logger::critical(QString("ONNX Runtime inference failed: %1").arg(e.what()));
     }
 }
 
 std::vector<cv::Rect> InferenceWorker::shortestPath(std::vector<cv::Rect>& centroids) {
     if (centroids.empty()) {
-		LOG_INFO("No centroids found for shortest path calculation.");
+		Logger::info("No centroids found for shortest path calculation.");
         return {};
     }
 
@@ -508,7 +508,7 @@ void InferenceWorker::processOutput(Ort::Value& output, cv::Mat& originalImage) 
     
     // Draw results
     drawBoxes(boxes, classIds, confidences, indices);
-	LOG_INFO("Valid detections found - " << indices.size());
+    Logger::info(QString("Valid detections found - %1").arg(indices.size()));
 }
 
 std::vector<cv::Rect> InferenceWorker::processBatchedOutput(Ort::Value& output, cv::Mat& originalImage) {
@@ -586,11 +586,11 @@ std::vector<cv::Rect> InferenceWorker::processBatchedOutput(Ort::Value& output, 
     cv::dnn::NMSBoxes(allBoxes, allConfidences, CONFIDENCE_THRESHOLD, OVERLAP_THRESHOLD, finalIndices);
 
     if (finalIndices.empty()) {
-        LOG_INFO("No valid detections found after NMS.");
+        Logger::info("No valid detections found after NMS.");
         return {};
 	}
 
-    LOG_INFO("Valid detections found - " << finalIndices.size());
+    Logger::info(QString("Valid detections found - %1").arg(finalIndices.size()));
     
     // Draw results
     std::vector<cv::Rect> centroids = drawBoxes(allBoxes, allClassIds, allConfidences, finalIndices);
@@ -607,7 +607,7 @@ void InferenceWorker::predict() {
     QMutexLocker locker(&m_mutex);
     
     if (m_inputFrame.empty()) {
-        LOG_WARNING("Input frame is empty. Cannot run inference.");
+        Logger::warning("Input frame is empty. Cannot run inference.");
         return;
 	}
 

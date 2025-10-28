@@ -32,7 +32,7 @@ enum cameraIndex {
 #define START_TIMER(name) auto start_##name = std::chrono::high_resolution_clock::now()
 #define END_TIMER(name) auto end_##name = std::chrono::high_resolution_clock::now(); \
                             auto duration_##name = std::chrono::duration_cast<std::chrono::milliseconds>(end_##name - start_##name); \
-                            LOG_INFO("[TIMER] " << #name << ": " << duration_##name.count() << " ms")
+                            Logger::debug(QString("[TIMER] %1: %2 ms").arg(#name).arg(duration_##name.count()));
 
 
 // functions declarations
@@ -44,26 +44,26 @@ std::vector<int> checkAvailableCameraConnections();
 
 
 
-// Logger class
-class Logger
-{
-public:
-	static void initialize();
-	static void cleanup();
-	static void appendLog(QTextEdit* logTextEdit, const QString& message, const QString& level = "INFO");
-
-private:
-	static void fileMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg);
-};
+//// Logger class
+//class Logger
+//{
+//public:
+//	/*static void initialize();
+//	static void cleanup();
+//	static void appendLog(QTextEdit* logTextEdit, const QString& message, const QString& level = "INFO");*/
+//
+//private:
+//	//static void fileMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg);
+//};
 
 cv::Scalar getColorForClass(int classId);
 
 
 // General application logging
-Q_DECLARE_LOGGING_CATEGORY(logApp)
-
-#define LOG_INFO(...) qCInfo(logApp)<< __VA_ARGS__
-#define LOG_WARNING(...) qCWarning(logApp) << __VA_ARGS__
-#define LOG_CRITICAL(...) qCCritical(logApp) << __VA_ARGS__
+//Q_DECLARE_LOGGING_CATEGORY(logApp)
+//
+//#define LOG_INFO(...) qCInfo(logApp)<< __VA_ARGS__
+//#define LOG_WARNING(...) qCWarning(logApp) << __VA_ARGS__
+//#define LOG_CRITICAL(...) qCCritical(logApp) << __VA_ARGS__
 
 #endif

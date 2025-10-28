@@ -1,6 +1,6 @@
 #include "cameraworker.h"
 #include <QThread>
-
+#include "logger.h"
 #include <filesystem>
 #include "utils.h"
 
@@ -11,40 +11,30 @@ CameraWorker::CameraWorker(int camIndex, int camType,
 {
     m_cameraIndex = camIndex;
     m_cameraType = camType;
-
-    LOG_INFO("CameraWorker initialized with camera index: " << m_cameraIndex
-        << " and type: " << m_cameraType);
-
+    Logger::info(QString("CameraWorker initialized with camera index: %1 and type: %2").arg(m_cameraIndex).arg(m_cameraType));
     if (camIndex != IMG) {
         m_cap.open(m_cameraIndex);
-
         // Apply user-specified settings
         m_cap.set(cv::CAP_PROP_FRAME_WIDTH, frameWidth);
         m_cap.set(cv::CAP_PROP_FRAME_HEIGHT, frameHeight);
         m_cap.set(cv::CAP_PROP_FPS, fps);
-
         if (!m_cap.isOpened()) {
-            LOG_CRITICAL("Failed to open camera with index: " << m_cameraIndex);
+            Logger::critical(QString("Failed to open camera with index: %1").arg(m_cameraIndex));
             return;
         }
-
         m_frameWidth = m_cap.get(cv::CAP_PROP_FRAME_WIDTH);
         m_frameHeight = m_cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-
-        LOG_INFO("Camera opened with resolution: "
-            << m_frameWidth << "x" << m_frameHeight
-            << " @ " << fps << " FPS");
+        Logger::info(QString("Camera opened with resolution: %1x%2 @ %3 FPS").arg(m_frameWidth).arg(m_frameHeight).arg(fps));
     }
     else {
         m_frameWidth = frameWidth;
         m_frameHeight = frameHeight;
     }
-
     m_running = true;
 }
 
 CameraWorker::~CameraWorker() {
-	LOG_INFO("deleting CameraWorker object");
+    Logger::info("deleting CameraWorker object");
     stop();
     if (m_cap.isOpened()) {
         m_cap.release();
@@ -70,10 +60,8 @@ void CameraWorker::process() {
             // TODO: this exits the thrd if stop() is called. might want to modify this to not exit the loop but also don't process further?
             if (!m_running) break;
         }
-
         cv::Mat frame;
         cv::Mat resized;
-
         if (!m_capturedFrame.empty()) {
             frame = m_capturedFrame;
             continue; // already rendered this frame
@@ -83,37 +71,30 @@ void CameraWorker::process() {
                 // TODO: make frame member of this class
                 std::string imgPath = "test_img.png";
                 if (!std::filesystem::exists(imgPath)) {
-                    LOG_CRITICAL("Test Image file does not exist: " << imgPath);
+                    Logger::critical(QString("Test Image file does not exist: %1").arg(QString::fromStdString(imgPath)));
                     return;
                 }
-
                 frame = cv::imread(imgPath);
-                //LOG_INFO("Reading image: " << imgPath << "dims: " << frame.cols << "x" << frame.rows);
+                //Logger::info(QString("Reading image: %1 dims: %2x%3").arg(QString::fromStdString(imgPath)).arg(frame.cols).arg(frame.rows));
             }
             else
                 m_cap >> frame;
-
             if (frame.empty()) {
                 //std::cerr << "something wrong" << std::endl;
-                LOG_WARNING("Empty frame captured from camera");
+                Logger::warning("Empty frame captured from camera");
                 continue;
             }
-
             //cv::flip(frame, frame, 1);
             //cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
-
             if (getCaptureImg()) {
-                LOG_INFO("Captured frame");
+                Logger::info("Captured frame");
                 setCapturedFrame(frame);
             }
-
             // for large images, resizing helps with UI FPS
             /*if (frame.cols > 1280 || frame.rows > 720)
                 cv::resize(frame, frame, cv::Size(1280, 720));*/
-
             QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_BGR888);
             emit frameReady(qImage.copy(), m_cameraType);
-
             QThread::msleep(50);
         }
     }

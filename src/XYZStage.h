@@ -22,11 +22,11 @@ struct GlobalVars {
     double current_x = 100.0;
     double current_y = 100.0;
     double current_z = 100.0;
-    int max_x = 100000;
-	int max_y = 150000;  
-    int max_z = 39000;
-    int min_x = 0;
-    int min_y = 0;
+    int max_x = 1000000;
+	int max_y = 1500000;
+    int max_z = 390000;
+    int min_x = -2000;
+    int min_y = -2000;
     int min_z = 0;
 	bool is_moving = false;
 };
@@ -74,9 +74,16 @@ private:
 
     // Helper to log
     void log(const QString& message, const QString& level = "INFO") {
-        if (m_logCallback) {
+        try {
             m_logCallback(message, level);
         }
+        catch (const std::exception& e) {
+            qDebug() << "Log callback threw an exception:" << e.what();
+        }
+        catch (...) {
+            qDebug() << "Log callback threw an unknown exception.";
+        }
+
     }
     // Member variables
     std::function<void(const QString&, const QString&)> m_logCallback;

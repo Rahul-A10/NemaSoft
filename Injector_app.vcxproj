@@ -110,6 +110,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="logger.cpp" />
     <ClCompile Include="src\cameraworker.cpp" />
     <ClCompile Include="src\detectiontraverser.cpp" />
     <ClCompile Include="src\inferenceworker.cpp" />
@@ -128,6 +129,8 @@
   <ItemGroup>
     <QtMoc Include="src\ZoomableGraphicsView.h" />
     <QtMoc Include="src\detectiontraverser.h" />
+    <QtMoc Include="logdisplay.h" />
+    <QtMoc Include="logger.h" />
     <ClInclude Include="src\XYZStage.h" />
     <QtMoc Include="src\inferenceworker.h" />
     <ClInclude Include="src\utils.h" />

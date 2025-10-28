@@ -3,16 +3,15 @@
 #include "utils.h"
 #include "QStyleFactory"
 #include "QPalette"
-
+#include "logger.h"
 int main(int argc, char* argv[]) {
 
     set_camDebug_flag(true);
 	set_fpsDebug_flag(true);
 
     // Initialize logger
-    Logger::initialize(); 
-
-    LOG_INFO("Application starting up: " << (get_camDebug_flag() ? "reading image input" : "reading video input"));
+ 
+    Logger::info(QString("Application starting up: %1").arg(get_camDebug_flag() ? "reading image input" : "reading video input"));
 
     std::vector<int> cams = checkAvailableCameraConnections();
 	// TODO: ask the user to set the camera index for arducam and duocam based on the printed cam outputs...
@@ -46,7 +45,7 @@ int main(int argc, char* argv[]) {
     w.show(); 
     int result = app.exec();
 
-    LOG_INFO("Application shutting down");
-    Logger::cleanup(); // Clean shutdown
+    Logger::info("Application shutting down");
+    //Logger::cleanup(); // Clean shutdown
     return result;
 }
