@@ -132,9 +132,7 @@ public:
     void updateMacroImageDisplay();
     //void drawAnnotationBox(int index);
     bool isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight);
-    void log(const QString& message, const QString& level = "INFO");
 	void onTriversePath();
-    void setupUI();
 
 private:
 
@@ -150,7 +148,6 @@ private:
     QLabel* m_yLabel;
     QLabel* m_zLabel;
     QTimer* m_positionUpdateTimer;
-    QTextEdit* m_logTextEdit;
     double m_prevX;
     double m_prevY;
     double m_prevZ;
@@ -172,6 +169,7 @@ private:
     inferenceOp m_macroImgInference;
 	QImage m_latestArducamImage;
 	cv::Mat m_currentMacroImg;
+    cv::Mat m_currentMacroImgdata;
 	std::vector<cv::Rect> m_macroImgPath;
 
     ZoomableGraphicsView* m_microCam1View = nullptr;

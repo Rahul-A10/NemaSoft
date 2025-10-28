@@ -33,7 +33,6 @@
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
-    //setupUI();
 
 
 
@@ -45,7 +44,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     int mainWidth = this->width();
     int mainHeight = this->height();
-
+    
     m_xyzStage.setLogCallback([this](const QString& message, const QString& level) {
         this->log(message, level);
         });
@@ -403,22 +402,13 @@ QGroupBox* MainWindow::setupPositionUI() {
     leftColumnLayout->addStretch(); // Push everything to the top
 
     // Right column - Log window
-    // Right column - Log window
     QLabel* logLabel = new QLabel("Logs:");
     m_logDisplay = new LogDisplay(this);  // Use the new LogDisplay widget
-
-    QPushButton* clearLogBtn = new QPushButton("Clear Logs");
-    connect(clearLogBtn, &QPushButton::clicked, this, [this]() {
-        m_logTextEdit->clear();
-        });
-
-    
 
     // Right column layout
     QVBoxLayout* rightColumnLayout = new QVBoxLayout();
     rightColumnLayout->addWidget(logLabel);
     rightColumnLayout->addWidget(m_logDisplay);  // Add the LogDisplay directly
-    rightColumnLayout->addWidget(clearLogBtn);
 
     // Horizontal layout to combine both columns
     QHBoxLayout* mainLayout = new QHBoxLayout();
@@ -606,6 +596,7 @@ void MainWindow::onStartArducam() {
         m_arducamView->resetTransform();
         m_arducamOp.cameraBtn->setText("Start Arducam");
 		m_currentMacroImg.release();
+		m_currentMacroImgdata.release();
 		m_macroImgPath.clear();
 		m_macroImgPath.shrink_to_fit();
 		m_arducamFPS->setText("arducam FPS - 0");
@@ -696,7 +687,7 @@ void MainWindow::onCaptureMacroImg() {
     m_arducamOp.camWorker->setCaptureImg(true);
 	QThread::msleep(300); // waiting to capture the image
 	m_currentMacroImg = m_arducamOp.camWorker->getCaturedFrame().clone();
-
+	m_currentMacroImgdata = m_currentMacroImg.clone();
     // crop the black portions out
     //m_currentMacroImg = cropInputImage(m_arducamOp.camWorker->getCaturedFrame().clone());
 
@@ -1040,7 +1031,7 @@ int MainWindow::getSelectedMicroId() const {
 
 void MainWindow::onCaptureMacroData() {
     QString timestamp;
-    if (!m_currentMacroImg.empty()) {
+    if (!m_currentMacroImgdata.empty()) {
         // Save Macro image
         QString folderPath = QDir(QCoreApplication::applicationDirPath()).filePath("macro_img_data/images");
         QDir dir;
@@ -1049,7 +1040,7 @@ void MainWindow::onCaptureMacroData() {
         }
         timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
         QString filePath = folderPath + "/" + timestamp + ".png";
-        cv::imwrite(filePath.toStdString(), m_currentMacroImg);
+        cv::imwrite(filePath.toStdString(), m_currentMacroImgdata);
         log("Macro image saved to: " + filePath, "INFO");
 
         // Save YOLO annotations
