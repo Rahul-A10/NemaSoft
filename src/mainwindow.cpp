@@ -44,7 +44,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     int mainWidth = this->width();
     int mainHeight = this->height();
-    
+
     m_xyzStage.setLogCallback([this](const QString& message, const QString& level) {
         this->log(message, level);
         });

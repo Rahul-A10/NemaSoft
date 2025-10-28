@@ -132,6 +132,7 @@ public:
     void updateMacroImageDisplay();
     //void drawAnnotationBox(int index);
     bool isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight);
+    void log(const QString& message, const QString& level = "INFO");
 	void onTriversePath();
 
 private:

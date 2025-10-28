@@ -73,8 +73,6 @@ private:
         QHBoxLayout* buttonLayout = new QHBoxLayout();
         QPushButton* clearBtn = new QPushButton("Clear Logs", this);
         connect(clearBtn, &QPushButton::clicked, this, &LogDisplay::clear);
-
-        buttonLayout->addStretch();
         buttonLayout->addWidget(clearBtn);
 
         mainLayout->addWidget(m_logTextEdit);
