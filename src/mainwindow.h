@@ -79,7 +79,9 @@ public:
     //QLabel* setupArducamUI();
     //QLabel* setupDuocamUI();
 
-    void updateFrame(const QImage& img, int camType);
+    
+
+
     void renderLatestFrame();
 
     void onStartArducam();
@@ -119,17 +121,20 @@ public:
     void onTraversalStarted();
     void onWaitingForUser();
     void onConfirmAdjustmentClicked();
+    void onInjectClicked();
     void onTraversalFinished(const QString& message);
 	void onHomeClicked();
     void onArducamClicked(const QPointF& scenePos, const QPointF& imagePos);
     void onMicroCam1Clicked(const QPointF& scenePos, const QPointF& imagePos);
     void onMicroCam2Clicked(const QPointF& scenePos, const QPointF& imagePos);
 	void clearMacroAnnotations();
+	void clearMicroAnnotations();
     int getSelectedMacroId() const;
     QString getSelectedMacroLabel() const;
 	QString getSelectedMicroLabel() const;
     int getSelectedMicroId() const;
-    void updateMacroImageDisplay();
+    void ImageDisplay(cameraType);
+	void updateFrame(const QImage& img, int camType);
     //void drawAnnotationBox(int index);
     bool isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight);
     void log(const QString& message, const QString& level = "INFO");
@@ -145,6 +150,8 @@ private:
     // private class members
     cv::Mat m_transformMatrix;
     QVector<YoloAnnotation> m_macroAnnotations;
+    QVector<YoloAnnotation> m_microAnnotations1;
+    QVector<YoloAnnotation> m_microAnnotations2;
     QLabel* m_xLabel;
     QLabel* m_yLabel;
     QLabel* m_zLabel;
@@ -222,6 +229,7 @@ private:
 	//Position display and go to position
     QPushButton* m_goToPositionBtn = nullptr;
     QPushButton* m_confirmAdjustmentBtn = nullptr;
+	QPushButton* m_Inject = nullptr;
 	QPushButton* m_abortPathBtn = nullptr;
     QPushButton* m_resumePathBtn = nullptr;
 	QPushButton* m_homeBtn = nullptr;

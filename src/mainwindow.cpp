@@ -261,6 +261,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_resumePathBtn->hide();
     m_confirmAdjustmentBtn = new QPushButton("✔");
     m_confirmAdjustmentBtn->setEnabled(false);
+	m_Inject = new QPushButton("Inject");
 	m_homeBtn = new QPushButton("🏠");
 	
 
@@ -283,6 +284,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_abortPathBtn->setFixedSize(30, 30);
     m_resumePathBtn->setFixedSize(30, 30);
     m_confirmAdjustmentBtn->setFixedSize(30, 30);
+	m_Inject->setFixedSize(60,30);
     m_homeBtn->setFixedSize(30, 30);
 
     movementLayout->addWidget(m_slant1Btn, 1, 1);
@@ -305,6 +307,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     movementLayout->addWidget(m_resumePathBtn, 5, 1);
     movementLayout->addWidget(m_confirmAdjustmentBtn, 5, 2);
 	movementLayout->addWidget(m_homeBtn, 5, 3);
+    movementLayout->addWidget(m_Inject, 5, 4);
 
     // Connect movement buttons to slots
     connect(m_leftFastBtn, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
@@ -326,6 +329,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
     //connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
     connect(m_confirmAdjustmentBtn, &QPushButton::clicked, this, &MainWindow::onConfirmAdjustmentClicked);
+	connect(m_Inject, &QPushButton::clicked, this, &MainWindow::onInjectClicked);
 	connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onHomeClicked);       
     
 
@@ -602,7 +606,7 @@ void MainWindow::onStartArducam() {
 		m_arducamFPS->setText("arducam FPS - 0");
         m_macroAnnotations.clear();
         // Display the captured image
-        updateMacroImageDisplay();
+        ImageDisplay(ARDUCAM);
         return;
     }
 
@@ -676,6 +680,8 @@ void MainWindow::onStartDuocam() {
     m_microCam2Op.FPSTimer.start();
 
     m_microCam1Op.cameraBtn->setText("Stop Duo Camera");
+	clearMicroAnnotations();
+   
 }
 
 void MainWindow::onCaptureMacroImg() {
@@ -870,6 +876,108 @@ void MainWindow::onPredictMacroImg() {
 }
 
 //----------------------------------------------DATA CAPTURE------------------------------------------------------------
+void MainWindow::ImageDisplay(cameraType cam) {
+    cv::Mat img;
+    QVector<YoloAnnotation>  annotations;
+    QComboBox* combobox;
+
+
+    if (cam == ARDUCAM) {
+        log("Updating Macro Image Display with annotations", "INFO");
+        img = m_currentMacroImg;
+        annotations = m_macroAnnotations;
+        combobox = m_macroComboBox;
+
+    }
+    else if (cam == MICROCAM1) {
+        log("Updating MicroCam1 Image Display with annotations", "INFO");
+        img = m_currentMicroImg1;
+        annotations = m_microAnnotations1;
+        combobox = m_microComboBox;
+    }
+    else if (cam == MICROCAM2) {
+        log("Updating MicroCam2 Image Display with annotations", "INFO");
+        img = m_currentMicroImg2;
+        annotations = m_microAnnotations2;
+        combobox = m_microComboBox;
+    }
+    else {
+        log("Unknown camera type for image display", "WARNING");
+        return;
+    }
+
+    if (img.empty()) {
+        log("No image to update display", "WARNING");
+        return;
+    }
+
+    // Clone the original image
+    cv::Mat displayImg = img.clone();
+    int imageWidth = displayImg.cols;
+    int imageHeight = displayImg.rows;
+
+    // Draw all annotation boxes
+    for (int i = 0; i < annotations.size(); ++i) {
+        const YoloAnnotation& ann = annotations[i];
+
+        // Convert normalized coordinates to pixel coordinates
+        double centerX = ann.center.x() * imageWidth;
+        double centerY = ann.center.y() * imageHeight;
+        double boxWidth = ann.width * imageWidth;
+        double boxHeight = ann.height * imageHeight;
+
+        // Calculate top-left corner
+        int x = static_cast<int>(centerX - boxWidth / 2.0);
+        int y = static_cast<int>(centerY - boxHeight / 2.0);
+        int w = static_cast<int>(boxWidth);
+        int h = static_cast<int>(boxHeight);
+
+        // Get color for current class
+        cv::Scalar color = getColorForClass(ann.classId);
+
+        // Draw rectangle
+        cv::rectangle(displayImg, cv::Rect(x, y, w, h), color, 2);
+
+        // Find the class name in the combo box by searching for the matching ID
+        QString className = "";
+        for (int idx = 0; idx < combobox->count(); ++idx) {
+            if (combobox->itemData(idx).toInt() == ann.classId) {
+                className = combobox->itemText(idx);
+                break;
+            }
+        }
+
+        // Draw class ID label
+        std::string label = className.toStdString();
+        cv::putText(displayImg, label, cv::Point(x, y - 5),
+            cv::FONT_HERSHEY_SIMPLEX, 1.5, color, 3);
+    }
+
+    // Convert to QImage
+    cv::Mat rgbImg;
+    cv::cvtColor(displayImg, rgbImg, cv::COLOR_BGR2RGB);
+    QImage qImg(rgbImg.data, rgbImg.cols, rgbImg.rows, rgbImg.step, QImage::Format_RGB888);
+    updateFrame(qImg.copy(), cam);
+}
+
+
+bool MainWindow::isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight) {
+    // Convert normalized YOLO coordinates back to pixel coordinates
+    double centerX = ann.center.x() * imageWidth;
+    double centerY = ann.center.y() * imageHeight;
+    double boxWidth = ann.width * imageWidth;
+    double boxHeight = ann.height * imageHeight;
+
+    // Calculate box boundaries
+    double left = centerX - boxWidth / 2.0;
+    double right = centerX + boxWidth / 2.0;
+    double top = centerY - boxHeight / 2.0;
+    double bottom = centerY + boxHeight / 2.0;
+
+    // Check if click is inside
+    return (imagePos.x() >= left && imagePos.x() <= right &&
+        imagePos.y() >= top && imagePos.y() <= bottom);
+}
 
 
 void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imagePos) {
@@ -892,7 +1000,7 @@ void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imageP
         if (isClickInsideBox(imagePos, m_macroAnnotations[i], imageWidth, imageHeight)) {
             log(QString("Deleting annotation at index:%1").arg(i), "INFO");
             m_macroAnnotations.removeAt(i);
-            updateMacroImageDisplay();
+            ImageDisplay(ARDUCAM);
             return;
         }
     }
@@ -925,89 +1033,134 @@ void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imageP
         .arg(defaultHeight), "INFO");
     
     // Update the display
-    updateMacroImageDisplay();
+    ImageDisplay(ARDUCAM);
 }
-bool MainWindow::isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight) {
-    // Convert normalized YOLO coordinates back to pixel coordinates
-    double centerX = ann.center.x() * imageWidth;
-    double centerY = ann.center.y() * imageHeight;
-    double boxWidth = ann.width * imageWidth;
-    double boxHeight = ann.height * imageHeight;
 
-    // Calculate box boundaries
-    double left = centerX - boxWidth / 2.0;
-    double right = centerX + boxWidth / 2.0;
-    double top = centerY - boxHeight / 2.0;
-    double bottom = centerY + boxHeight / 2.0;
 
-    // Check if click is inside
-    return (imagePos.x() >= left && imagePos.x() <= right &&
-        imagePos.y() >= top && imagePos.y() <= bottom);
-}
-void MainWindow::updateMacroImageDisplay() {
-    if (m_currentMacroImg.empty()) {
-        return;
-    }
-
-    // Clone the original image
-    cv::Mat displayImg = m_currentMacroImg.clone();
-    int imageWidth = displayImg.cols;
-    int imageHeight = displayImg.rows;
-
-    // Draw all annotation boxes
-    for (int i = 0; i < m_macroAnnotations.size(); ++i) {
-        const YoloAnnotation& ann = m_macroAnnotations[i];
-
-        // Convert normalized coordinates to pixel coordinates
-        double centerX = ann.center.x() * imageWidth;
-        double centerY = ann.center.y() * imageHeight;
-        double boxWidth = ann.width * imageWidth;
-        double boxHeight = ann.height * imageHeight;
-
-        // Calculate top-left corner
-        int x = static_cast<int>(centerX - boxWidth / 2.0);
-        int y = static_cast<int>(centerY - boxHeight / 2.0);
-        int w = static_cast<int>(boxWidth);
-        int h = static_cast<int>(boxHeight);
-
-        // Get color for current class
-        cv::Scalar color = getColorForClass(ann.classId);
-
-        // Draw rectangle
-        cv::rectangle(displayImg, cv::Rect(x, y, w, h), color, 2);
-
-        // Find the class name in the combo box by searching for the matching ID
-        QString className = "";
-        for (int idx = 0; idx < m_macroComboBox->count(); ++idx) {
-            if (m_macroComboBox->itemData(idx).toInt() == ann.classId) {
-                className = m_macroComboBox->itemText(idx);
-                break;
-            }
-        }
-
-        // Draw class ID label
-        std::string label = className.toStdString();
-        cv::putText(displayImg, label, cv::Point(x, y - 5),
-            cv::FONT_HERSHEY_SIMPLEX, 1.5, color, 3);
-    }
-
-    // Convert to QImage
-    cv::Mat rgbImg;
-    cv::cvtColor(displayImg, rgbImg, cv::COLOR_BGR2RGB);
-    QImage qImg(rgbImg.data, rgbImg.cols, rgbImg.rows, rgbImg.step, QImage::Format_RGB888);
-    updateFrame(qImg.copy(), ARDUCAM);
-}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 void MainWindow::onMicroCam1Clicked(const QPointF& scenePos, const QPointF& imagePos) {
     log(QString("MicroCam1 clicked - Scene: (%1, %2), Image: (%3, %4)").arg(scenePos.x()).arg(scenePos.y()).arg(imagePos.x()).arg(imagePos.y()), "INFO");
+
+    // Check if we have a captured macro image
+    m_microCam1Op.camWorker->setCaptureImg(true);
+    m_currentMicroImg1 = m_microCam1Op.camWorker->getCaturedFrame().clone();
+    if (m_currentMicroImg1.empty()) {
+        log("No micro image captured yet", "INFO");
+        return;
+    }
+
+    // Get image dimensions from the OpenCV Mat
+    int imageWidth = m_currentMicroImg1.cols;
+    int imageHeight = m_currentMicroImg1.rows;
+
+    // Check if click is inside any existing bounding box (for deletion)
+    for (int i = m_microAnnotations1.size() - 1; i >= 0; --i) {
+        if (isClickInsideBox(imagePos, m_microAnnotations1[i], imageWidth, imageHeight)) {
+            log(QString("Deleting annotation at index:%1").arg(i), "INFO");
+            m_microAnnotations1.removeAt(i);
+            ImageDisplay(MICROCAM1);
+            return;
+        }
+    }
+
+    // If not clicking on existing box, add new annotation
+    // Use only class ID 0 for path traversing
+    int classId = getSelectedMicroId();  // Force first class ID for path traversing
+
+    // Normalize coordinates (YOLO format uses 0-1 range)
+    double normalizedX = imagePos.x() / imageWidth;
+    double normalizedY = imagePos.y() / imageHeight;
+
+    // Default bounding box size (you can adjust these or make them configurable)
+    double defaultWidth = 0.01;  // 1% of image width
+    double defaultHeight = 0.01; // 1% of image height
+
+    YoloAnnotation annotation;
+    annotation.classId = classId;
+    annotation.center = QPointF(normalizedX, normalizedY);
+    annotation.width = defaultWidth;
+    annotation.height = defaultHeight;
+
+    m_microAnnotations1.append(annotation);
+
+    log(QString("Manual annotation added - Class: %1, Center: (%2, %3), Size: (%4, %5)")
+        .arg(classId)
+        .arg(normalizedX)
+        .arg(normalizedY)
+        .arg(defaultWidth)
+        .arg(defaultHeight), "INFO");
+
+    // Update the display
+    ImageDisplay(MICROCAM1);
 }
 
 
 
 void MainWindow::onMicroCam2Clicked(const QPointF& scenePos, const QPointF& imagePos) {
     log(QString("MicroCam2 clicked - Scene: (%1, %2), Image: (%3, %4)").arg(scenePos.x()).arg(scenePos.y()).arg(imagePos.x()).arg(imagePos.y()), "INFO");
+    log(QString("Arducam clicked - Scene:%1 Image:%2")
+        .arg(QString::number(scenePos.x()) + "," + QString::number(scenePos.y()))
+        .arg(QString::number(imagePos.x()) + "," + QString::number(imagePos.y())), "INFO");
+
+    // Check if we have a captured macro image
+    m_microCam2Op.camWorker->setCaptureImg(true);
+    m_currentMicroImg2 = m_microCam2Op.camWorker->getCaturedFrame().clone();
+    if (m_currentMicroImg2.empty()) {
+        log("No macro image captured yet", "INFO");
+        return;
+    }
+
+    // Get image dimensions from the OpenCV Mat
+    int imageWidth = m_currentMicroImg2.cols;
+    int imageHeight = m_currentMicroImg2.rows;
+
+    // Check if click is inside any existing bounding box (for deletion)
+    for (int i = m_microAnnotations2.size() - 1; i >= 0; --i) {
+        if (isClickInsideBox(imagePos, m_microAnnotations2[i], imageWidth, imageHeight)) {
+            log(QString("Deleting annotation at index:%1").arg(i), "INFO");
+            m_microAnnotations2.removeAt(i);
+            ImageDisplay(MICROCAM2);
+            return;
+        }
+    }
+
+    // If not clicking on existing box, add new annotation
+    // Use only class ID 0 for path traversing
+    int classId = getSelectedMicroId();  // Force first class ID for path traversing
+
+    // Normalize coordinates (YOLO format uses 0-1 range)
+    double normalizedX = imagePos.x() / imageWidth;
+    double normalizedY = imagePos.y() / imageHeight;
+
+    // Default bounding box size (you can adjust these or make them configurable)
+    double defaultWidth = 0.01;  // 1% of image width
+    double defaultHeight = 0.01; // 1% of image height
+
+    YoloAnnotation annotation;
+    annotation.classId = classId;
+    annotation.center = QPointF(normalizedX, normalizedY);
+    annotation.width = defaultWidth;
+    annotation.height = defaultHeight;
+
+    m_macroAnnotations.append(annotation);
+
+    log(QString("Manual annotation added - Class: %1, Center: (%2, %3), Size: (%4, %5)")
+        .arg(classId)
+        .arg(normalizedX)
+        .arg(normalizedY)
+        .arg(defaultWidth)
+        .arg(defaultHeight), "INFO");
+
+    // Update the display
+    ImageDisplay(MICROCAM2);
 }
+void MainWindow::clearMicroAnnotations() {
+    m_microAnnotations1.clear();
+    m_microAnnotations2.clear();
+    log("Cleared all macro annotations.", "INFO");
+}
+
 
 void MainWindow::clearMacroAnnotations() {
     m_macroAnnotations.clear();
@@ -1130,8 +1283,14 @@ void MainWindow::onCaptureMicroData() {
         QFile l_file1(positionFilePath1);
         if (l_file1.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream out(&l_file1);
-            // Write your position data here
             // out << positionData;
+            for (const YoloAnnotation& ann : m_microAnnotations1) {
+                out << ann.classId << " "
+                    << ann.center.x() << " "
+                    << ann.center.y() << " "
+                    << ann.width << " "
+                    << ann.height << "\n";
+            }
             l_file1.close();
             log("Position data saved to: " + positionFilePath1, "INFO");
         }
@@ -1142,7 +1301,13 @@ void MainWindow::onCaptureMicroData() {
         QFile l_file2(positionFilePath2);
         if (l_file2.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream out(&l_file2);
-            // Write your position data here
+            for (const YoloAnnotation& ann : m_microAnnotations2) {
+                out << ann.classId << " "
+                    << ann.center.x() << " "
+                    << ann.center.y() << " "
+                    << ann.width << " "
+                    << ann.height << "\n";
+            }
             // out << positionData;
             l_file2.close();
             log("Position data saved to: " + positionFilePath2, "INFO");
@@ -1253,6 +1418,11 @@ void MainWindow::onConfirmAdjustmentClicked() {
     Logger::info("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
+}
+
+void MainWindow::onInjectClicked() {
+    Logger::info("Injecting");
+
 }
 
 void MainWindow::onHomeClicked() {
