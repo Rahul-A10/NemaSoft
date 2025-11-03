@@ -64,6 +64,8 @@ void CameraWorker::process() {
         cv::Mat resized;
         if (!m_capturedFrame.empty()) {
             frame = m_capturedFrame;
+            QMutexLocker locker(&m_frameMutex);
+            m_currentFrame = frame.clone();
             continue; // already rendered this frame
         }
         else {
@@ -72,9 +74,11 @@ void CameraWorker::process() {
                 std::string imgPath = "test_img.png";
                 if (!std::filesystem::exists(imgPath)) {
                     Logger::critical(QString("Test Image file does not exist: %1").arg(QString::fromStdString(imgPath)));
+                    
                     return;
                 }
                 frame = cv::imread(imgPath);
+                m_currentFrame = frame.clone();
                 //Logger::info(QString("Reading image: %1 dims: %2x%3").arg(QString::fromStdString(imgPath)).arg(frame.cols).arg(frame.rows));
             }
             else

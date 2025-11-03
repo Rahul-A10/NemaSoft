@@ -28,6 +28,7 @@ public:
 	// TODO: even after capture macro img reads from the camera, we still need this to show the video feed captured frame to the user
     void setCapturedFrame(cv::Mat& frame) { m_capturedFrame = frame.clone(); }
     cv::Mat getCaturedFrame() { QMutexLocker lock(&m_mutex); return m_capturedFrame; }
+    cv::Mat getCurrentFrame() const { QMutexLocker locker(&m_frameMutex); return m_currentFrame.clone(); }
  
 public slots:
     void process();
@@ -45,6 +46,8 @@ private:
     int m_frameHeight;
     bool m_captureImg;
     cv::Mat m_capturedFrame;
+    mutable QMutex m_frameMutex;
+    cv::Mat m_currentFrame;
 };
 
 

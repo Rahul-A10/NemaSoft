@@ -23,6 +23,12 @@ public:
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
 
+	// Internal logging method - runs in the Logger's thread
+    void log(const QString& message, const QString& level) {
+        QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
+        emit logMessage(timestamp, level, message);
+    }
+
     // Thread-safe logging methods - can be called from ANY thread
     static void info(const QString& message) {
         instance().log(message, "INFO");
@@ -52,10 +58,7 @@ private:
     Logger() = default;
     ~Logger() = default;
 
-    void log(const QString& message, const QString& level) {
-        QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-        emit logMessage(timestamp, level, message);
-    }
+    
 };
 
 #endif // LOGGER_H

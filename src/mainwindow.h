@@ -19,6 +19,7 @@
 #include <QTextEdit>
 #include "logger.h"
 #include "logdisplay.h"
+#include "PointMatcher.h"
 struct cameraOp
 {
     QThread* thrd;
@@ -139,6 +140,11 @@ public:
     bool isClickInsideBox(const QPointF& imagePos, const YoloAnnotation& ann, int imageWidth, int imageHeight);
     void log(const QString& message, const QString& level = "INFO");
 	void onTriversePath();
+    void drawAnnotations(cv::Mat& img, const QVector<YoloAnnotation>& annotations, QComboBox* combobox);
+    void onMicroCam1FrameReady(const QImage& img, int camType);
+    void onMicroCam2FrameReady(const QImage& img, int camType);
+    void onPointMatchFound(QPointF targetPoint, float confidence);
+    void onPointMatchFailed(const QString& reason);
 
 private:
 
@@ -240,6 +246,7 @@ private:
 
     QThread* m_traverserThread = nullptr;
     DetectionTraverser* m_traverser = nullptr;
+    PointMatcher* m_pointMatcher;
 
 };
 
