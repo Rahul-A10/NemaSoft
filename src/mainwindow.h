@@ -20,6 +20,7 @@
 #include "logger.h"
 #include "logdisplay.h"
 #include "PointMatcher.h"
+#include "VisualServoController.h"
 struct cameraOp
 {
     QThread* thrd;
@@ -144,7 +145,12 @@ public:
     void onMicroCam1FrameReady(const QImage& img, int camType);
     void onMicroCam2FrameReady(const QImage& img, int camType);
     void onPointMatchFound(QPointF targetPoint, float confidence);
+
     void onPointMatchFailed(const QString& reason);
+    
+    // Helper functions
+    cv::Mat getMicroCam1Frame();
+    cv::Mat getMicroCam2Frame();
 
 private:
 
@@ -247,7 +253,18 @@ private:
     QThread* m_traverserThread = nullptr;
     DetectionTraverser* m_traverser = nullptr;
     PointMatcher* m_pointMatcher;
+    VisualServoController* m_visualServo;
+    bool m_isServoing;
+
+private slots:
+    // Visual servoing slots
+    void onServoToCenter();
+    void onServoIterationUpdate(int iteration, double error1, double error2);
+    void onServoCompleted(bool success, int iterations);
+    void onServoError(const QString& error);
 
 };
+
+
 
 #endif // MAINWINDOW_

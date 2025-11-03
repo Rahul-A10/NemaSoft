@@ -110,6 +110,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="VisualServoController.cpp" />
     <ClCompile Include="PointMatcher.cpp" />
     <ClCompile Include="logger.cpp" />
     <ClCompile Include="src\cameraworker.cpp" />
@@ -128,6 +129,7 @@
     <QtMoc Include="src\cameraworker.h" />
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="VisualServoController.h" />
     <QtMoc Include="src\ZoomableGraphicsView.h" />
     <QtMoc Include="src\detectiontraverser.h" />
     <QtMoc Include="logdisplay.h" />
