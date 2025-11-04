@@ -19,7 +19,7 @@ HANDLE XYZStage::getSerial() {
     );
 
     if (hSerial == INVALID_HANDLE_VALUE) {
-        log("Error opening serial port " + QString::fromStdString(port), "CRITICAL");
+        //log("Error opening serial port " + QString::fromStdString(port), "CRITICAL");
         return INVALID_HANDLE_VALUE;
     }
 
@@ -28,7 +28,7 @@ HANDLE XYZStage::getSerial() {
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 
     if (!GetCommState(hSerial, &dcbSerialParams)) {
-        log("Failed to get current serial parameters!", "CRITICAL");
+        //log("Failed to get current serial parameters!", "CRITICAL");
         CloseHandle(hSerial);
         return INVALID_HANDLE_VALUE;
     }
@@ -39,7 +39,7 @@ HANDLE XYZStage::getSerial() {
     dcbSerialParams.Parity = NOPARITY;
 
     if (!SetCommState(hSerial, &dcbSerialParams)) {
-        log("Could not set serial port parameters!", "CRITICAL");
+        //log("Could not set serial port parameters!", "CRITICAL");
         CloseHandle(hSerial);
         return INVALID_HANDLE_VALUE;
     }
@@ -53,7 +53,7 @@ HANDLE XYZStage::getSerial() {
     timeouts.WriteTotalTimeoutMultiplier = 10;
 
     if (!SetCommTimeouts(hSerial, &timeouts)) {
-        log("Could not set serial port timeouts!", "CRITICAL");
+        //log("Could not set serial port timeouts!", "CRITICAL");
         CloseHandle(hSerial);
         return INVALID_HANDLE_VALUE;
     }
