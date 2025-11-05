@@ -14,9 +14,28 @@ VisualServoController::VisualServoController(XYZStage* stage, QObject* parent)
     , m_convergenceThreshold(5.0)     // 5 pixels
     , m_maxIterations(50)
     , m_centerTarget(true)             // Default: move to center
+    , m_pixelsPerMM_X(10.0)    // DEFAULT: 10 pixels = 1mm (CALIBRATE THIS!)
+    , m_pixelsPerMM_Y(10.0)    // DEFAULT: 10 pixels = 1mm (CALIBRATE THIS!)
+    , m_invertX(false)          // Set to true if X moves opposite
+    , m_invertY(false)          // Set to true if Y moves opposite
 {
     Logger::instance().log("VisualServoController initialized", "INFO");
 }
+
+
+
+void VisualServoController::setImageToStageMapping(double pixelsPerMM_X, double pixelsPerMM_Y,
+    bool invertX, bool invertY) {
+    m_pixelsPerMM_X = pixelsPerMM_X;
+    m_pixelsPerMM_Y = pixelsPerMM_Y;
+    m_invertX = invertX;
+    m_invertY = invertY;
+
+    Logger::instance().log(QString("Image-to-stage mapping set: %1 px/mm (X), %2 px/mm (Y), invert X=%3, Y=%4")
+        .arg(pixelsPerMM_X).arg(pixelsPerMM_Y).arg(invertX).arg(invertY), "INFO");
+}
+
+
 
 void VisualServoController::setStepSize(double xy_step, double z_step) {
     m_stepXY = xy_step;
@@ -97,26 +116,42 @@ QPoint VisualServoController::trackPoint(const cv::Mat& prevFrame,
 cv::Point2f VisualServoController::computeMovementDirection(
     const QPoint& currentCam1, const QPoint& targetCam1,
     const QPoint& currentCam2, const QPoint& targetCam2,
-    const cv::Mat& frame1, const cv::Mat& frame2) {
+    const cv::Mat& frame1, const cv::Mat& frame2) 
+{
+    // Calculate X and Y errors for both cameras
+    double error1_x = currentCam1.x() - targetCam1.x();
+    double error2_x = currentCam2.x() - targetCam2.x();
+    double error1_y = currentCam1.y() - targetCam1.y();
+    double error2_y = currentCam2.y() - targetCam2.y();
 
-    // Calculate error vectors in both cameras (in image coordinates)
-    double error1_x = targetCam1.x() - currentCam1.x();
-    double error1_y = targetCam1.y() - currentCam1.y();
-    double error2_x = targetCam2.x() - currentCam2.x();
-    double error2_y = targetCam2.y() - currentCam2.y();
+    double pixelError_X = (error1_x + error2_x) / 2.0;  // Average X error in pixels
+    double pixelError_Y = (error1_y + error2_y) / 2.0;  // Average Y error in pixels
 
-    // Average the directional errors from both cameras
-    // This provides a consensus direction for stage movement
-    double avg_error_x = (error1_x + error2_x) / 2.0;
-    double avg_error_y = (error1_y + error2_y) / 2.0;
+    // Convert pixel error to mm
+    double errorMM_X = pixelError_X / m_pixelsPerMM_X;
+    double errorMM_Y = pixelError_Y / m_pixelsPerMM_Y;
 
-    // Normalize to get unit direction vector
-    double magnitude = sqrt(avg_error_x * avg_error_x + avg_error_y * avg_error_y);
-    if (magnitude < 0.1) {
-        return cv::Point2f(0, 0);
-    }
+    // Apply step size (don't move full error, just a fraction)
+    double dx = errorMM_X * 0.5;  // Move 50% of the error
+    double dy = errorMM_Y * 0.5;  // Move 50% of the error
 
-    return cv::Point2f(avg_error_x / magnitude, avg_error_y / magnitude);
+    // Apply direction inversions if needed
+    if (m_invertX) dx = -dx;
+    if (m_invertY) dy = -dy;
+
+    // Clamp to max step size
+    dx = std::max(-m_stepXY, std::min(m_stepXY, dx));
+    dy = std::max(-m_stepXY, std::min(m_stepXY, dy));
+
+    double dz = 0.0;  // Z is always 0
+
+    Logger::instance().log(QString("Moving stage: dx=%1mm, dy=%2mm (from errors: %3px, %4px)")
+        .arg(dx, 0, 'f', 3)
+        .arg(dy, 0, 'f', 3)
+        .arg(pixelError_X, 0, 'f', 1)
+        .arg(pixelError_Y, 0, 'f', 1), "INFO");
+
+    return cv::Point2f(dx, dy);
 }
 
 bool VisualServoController::servoToTarget(const QPoint& initialTargetCam1,
@@ -124,7 +159,7 @@ bool VisualServoController::servoToTarget(const QPoint& initialTargetCam1,
     std::function<cv::Mat()> getCam1Frame,
     std::function<cv::Mat()> getCam2Frame) {
 
-    Logger::instance().log("Starting visual servoing loop", "INFO");
+    Logger::instance().log("Starting visual servoing loop (XY only, Z locked)", "INFO");
 
     cv::Mat frame1 = getCam1Frame();
     cv::Mat frame2 = getCam2Frame();
@@ -195,24 +230,14 @@ bool VisualServoController::servoToTarget(const QPoint& initialTargetCam1,
         // Simple mapping: image X → stage X, image Y → stage Y
         double dx = direction.x * m_stepXY;
         double dy = direction.y * m_stepXY;
-        double dz = 0.0;
+        double dz = 0.0;  // Z is always 0 - no Z movement
 
-        // Z adjustment heuristic: if errors differ significantly, adjust Z
-        // This helps when the point is out of focal plane
-        if (std::abs(error1 - error2) > 10) {
-            // If cam1 error > cam2 error, move Z up; otherwise down
-            dz = (error1 > error2) ? m_stepZ : -m_stepZ;
-            Logger::instance().log(QString("Applying Z adjustment: %1mm (error difference: %2px)")
-                .arg(dz).arg(std::abs(error1 - error2)), "DEBUG");
-        }
-
-        Logger::instance().log(QString("Moving stage: dx=%1mm, dy=%2mm, dz=%3mm")
+        Logger::instance().log(QString("Moving stage (XY only): dx=%1mm, dy=%2mm, dz=0mm")
             .arg(dx, 0, 'f', 3)
-            .arg(dy, 0, 'f', 3)
-            .arg(dz, 0, 'f', 3), "INFO");
+            .arg(dy, 0, 'f', 3), "INFO");
 
-        // Move the stage and wait for completion
-        m_stage->move_and_wait(dx, dy, dz, m_velocityX, m_velocityY, m_velocityZ);
+        // Move the stage in XY only, Z is locked at 0
+        m_stage->move_and_wait(dx * 1000, dy * 1000, 0.0, m_velocityX, m_velocityY, m_velocityZ);
 
         // Store current frames for next iteration's optical flow
         prevFrame1 = frame1.clone();

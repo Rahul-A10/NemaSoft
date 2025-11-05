@@ -11,24 +11,24 @@ PointMatcher::PointMatcher(QObject* parent)
     , m_minMatchQuality(0.6f)      // Minimum 60% confidence
     , m_lastMatchConfidence(0.0f)
 {
-    // Initialize ORB detector with parameters optimized for matching
-    // ORB is faster than SIFT and doesn't require opencv_contrib
+    // Initialize ORB detector with AGGRESSIVE parameters for better detection
     m_orbDetector = cv::ORB::create(
-        2000,     // nfeatures - max number of features to detect
+        5000,     // nfeatures - INCREASED from 2000 to detect MORE features
         1.2f,     // scaleFactor
-        8,        // nlevels - pyramid levels
+        8,        // nlevels - pyramid levels for scale invariance
         31,       // edgeThreshold
         0,        // firstLevel
         2,        // WTA_K
-        cv::ORB::HARRIS_SCORE,  // scoreType
+        cv::ORB::HARRIS_SCORE,  // scoreType - better than FAST
         31,       // patchSize
-        20        // fastThreshold
+        10        // fastThreshold - LOWERED from 20 to detect more keypoints
     );
 
-    // Use BFMatcher for ORB (binary descriptors)
-    m_matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true); // crossCheck enabled
+    // Use BFMatcher with Hamming distance for ORB (binary descriptors)
+    // crossCheck = false to enable kNN matching for ratio test
+    m_matcher = cv::BFMatcher::create(cv::NORM_HAMMING, false);
 
-    Logger::instance().log("PointMatcher initialized with ORB detector", "INFO");
+    Logger::instance().log("PointMatcher initialized with enhanced ORB detector (5000 features, lower threshold)", "INFO");
 }
 
 PointMatcher::~PointMatcher() {
@@ -94,13 +94,13 @@ float PointMatcher::calculateMatchConfidence(const std::vector<cv::DMatch>& matc
     }
 
     // For ORB with Hamming distance, lower distance is better
-    // Typical range: 0-100 for good matches, >150 for poor matches
+    // Good matches typically have distance < 50
     // Normalize to 0-1 where 1 is best
-    float normalizedDistance = std::max(0.0f, 1.0f - (selectedMatch.distance / 150.0f));
+    float normalizedDistance = std::max(0.0f, 1.0f - (selectedMatch.distance / 100.0f));
 
     // Confidence increases with more matches and better distance
     float matchCountFactor = std::min(1.0f, static_cast<float>(matches.size()) / 20.0f);
-    float confidence = (normalizedDistance * 0.7f) + (matchCountFactor * 0.3f);
+    float confidence = (normalizedDistance * 0.8f) + (matchCountFactor * 0.2f);
 
     return std::max(0.0f, std::min(1.0f, confidence));
 }
@@ -146,7 +146,8 @@ bool PointMatcher::verifyMatch(const cv::Mat& frame1, const cv::Mat& frame2,
 
     Logger::instance().log(QString("Match verification correlation: %1").arg(correlation), "DEBUG");
 
-    return correlation > 0.5; // Threshold for acceptance
+    // Relaxed threshold for acceptance
+    return correlation > 0.4; // Lowered from 0.5
 }
 
 bool PointMatcher::findCorrespondingPoint(const cv::Mat& sourceFrame,
@@ -173,15 +174,19 @@ bool PointMatcher::findCorrespondingPoint(const cv::Mat& sourceFrame,
             cv::cvtColor(sourceFrame, graySource, cv::COLOR_BGR2GRAY);
         }
         else {
-            graySource = sourceFrame;
+            graySource = sourceFrame.clone();
         }
 
         if (targetFrame.channels() == 3) {
             cv::cvtColor(targetFrame, grayTarget, cv::COLOR_BGR2GRAY);
         }
         else {
-            grayTarget = targetFrame;
+            grayTarget = targetFrame.clone();
         }
+
+        // ENHANCEMENT: Apply histogram equalization for better feature detection
+        cv::equalizeHist(graySource, graySource);
+        cv::equalizeHist(grayTarget, grayTarget);
 
         // Detect keypoints and compute descriptors using ORB
         std::vector<cv::KeyPoint> keypointsSource, keypointsTarget;
@@ -232,28 +237,40 @@ bool PointMatcher::findCorrespondingPoint(const cv::Mat& sourceFrame,
         Logger::instance().log(QString("Found keypoint at distance %1 pixels from click")
             .arg(distToClick), "INFO");
 
-        // Match descriptors using BFMatcher
-        std::vector<cv::DMatch> matches;
-        m_matcher->match(descriptorsSource, descriptorsTarget, matches);
+        // ENHANCED: Use kNN matching with k=2 for Lowe's ratio test
+        std::vector<std::vector<cv::DMatch>> knnMatches;
+        m_matcher->knnMatch(descriptorsSource, descriptorsTarget, knnMatches, 2);
 
-        if (matches.empty()) {
-            QString msg = "No matches found";
+        // Apply Lowe's ratio test
+        std::vector<cv::DMatch> goodMatches;
+        for (size_t i = 0; i < knnMatches.size(); i++) {
+            if (knnMatches[i].size() >= 2) {
+                // Ratio test: best match should be significantly better than second best
+                if (knnMatches[i][0].distance < m_matchRatioThreshold * knnMatches[i][1].distance) {
+                    goodMatches.push_back(knnMatches[i][0]);
+                }
+            }
+        }
+
+        if (goodMatches.empty()) {
+            QString msg = "No good matches found after ratio test";
             Logger::instance().log(msg, "WARNING");
             emit matchFailed(msg);
             return false;
         }
 
-        Logger::instance().log(QString("Found %1 matches").arg(matches.size()), "INFO");
+        Logger::instance().log(QString("Found %1 good matches (ratio test passed)")
+            .arg(goodMatches.size()), "INFO");
 
         // Find the match for our selected keypoint
         bool matchFound = false;
-        for (const auto& match : matches) {
+        for (const auto& match : goodMatches) {
             if (match.queryIdx == closestIdx) {
                 cv::Point2f matchedPt = keypointsTarget[match.trainIdx].pt;
                 correspondingPoint = QPointF(matchedPt.x, matchedPt.y);
 
                 // Calculate confidence
-                m_lastMatchConfidence = calculateMatchConfidence(matches, closestIdx);
+                m_lastMatchConfidence = calculateMatchConfidence(goodMatches, closestIdx);
 
                 Logger::instance().log(QString("Corresponding point found at (%1, %2) with confidence %3")
                     .arg(correspondingPoint.x()).arg(correspondingPoint.y())

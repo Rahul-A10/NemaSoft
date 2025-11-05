@@ -110,7 +110,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="VisualServoController.cpp" />
     <ClCompile Include="PointMatcher.cpp" />
     <ClCompile Include="logger.cpp" />
     <ClCompile Include="src\cameraworker.cpp" />
@@ -129,15 +128,18 @@
     <QtMoc Include="src\cameraworker.h" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="VisualServoController.h" />
     <QtMoc Include="src\ZoomableGraphicsView.h" />
     <QtMoc Include="src\detectiontraverser.h" />
     <QtMoc Include="logdisplay.h" />
     <QtMoc Include="logger.h" />
     <QtMoc Include="PointMatcher.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="src\XYZStage.h" />
     <QtMoc Include="src\inferenceworker.h" />
     <ClInclude Include="src\utils.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="NemaSoft.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

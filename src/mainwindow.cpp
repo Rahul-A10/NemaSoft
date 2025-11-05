@@ -51,9 +51,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Initialize point matcher
     m_pointMatcher = new PointMatcher(this);
-    m_pointMatcher->setSearchRadius(50);           // 50 pixel search radius
+    m_pointMatcher->setSearchRadius(100);           // 50 pixel search radius
     m_pointMatcher->setMatchRatioThreshold(0.75f); // Lowe's ratio test
-    m_pointMatcher->setMinMatchQuality(0.6f);      // 60% confidence minimum
+    m_pointMatcher->setMinMatchQuality(0.5f);      // 60% confidence minimum
 
     // Connect signals
     connect(m_pointMatcher, &PointMatcher::matchFound,
@@ -63,25 +63,8 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_pointMatcher, &PointMatcher::logMessage,
         this, &MainWindow::log);
 
-    // Initialize visual servo controller
-    m_visualServo = new VisualServoController(&m_xyzStage, this);
 
-    // Configure servo parameters
-    m_visualServo->setStepSize(0.5, 0.2);        // 0.5mm XY steps, 0.2mm Z steps
-    m_visualServo->setVelocity(1000, 1000, 500); // X, Y, Z velocities
-    m_visualServo->setConvergenceThreshold(5.0); // 5 pixel threshold
-    m_visualServo->setMaxIterations(50);         // Max 50 iterations
-    m_visualServo->setCenterTarget(true);        // Move point to center
 
-    // Connect visual servo signals
-    connect(m_visualServo, &VisualServoController::servoIterationComplete,
-        this, &MainWindow::onServoIterationUpdate);
-    connect(m_visualServo, &VisualServoController::servoComplete,
-        this, &MainWindow::onServoCompleted);
-    connect(m_visualServo, &VisualServoController::errorOccurred,
-        this, &MainWindow::onServoError);
-
-    log("Visual servo system initialized", "INFO");
 
 
 
@@ -365,7 +348,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
     //connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
     connect(m_confirmAdjustmentBtn, &QPushButton::clicked, this, &MainWindow::onConfirmAdjustmentClicked);
-	connect(m_Inject, &QPushButton::clicked, this, &MainWindow::onServoToCenter);
+    //connect(m_Inject, &QPushButton::clicked, this, &MainWindow::);
 	connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onHomeClicked);       
     
 
@@ -404,7 +387,7 @@ QGroupBox* MainWindow::setupPositionUI() {
     m_zLabel = new QLabel(QString("Z: %1").arg(globle_vars.current_z));
     QLabel* newPosLabel = new QLabel("New Position 1");
     m_x1 = new QLineEdit("59852");
-    m_y1 = new QLineEdit("142500");
+    m_y1 = new QLineEdit("162080");
     m_z1 = new QLineEdit("0");
     m_stepEdit = new QLineEdit("400");
 
@@ -653,7 +636,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(1, 0, 3840, 2160, 20);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(1, 0, 3840, 2160, 10);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -794,15 +777,15 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(1445 , 1198),   // Replace with actual image coordinates // i
-        cv::Point2f(1763, 1115),   // from your calibration process// center
-        cv::Point2f(1865, 881)//0.1
+        cv::Point2f(1833 , 1013),   // Replace with actual image coordinates // i
+        cv::Point2f(2193, 1105),   // from your calibration process// center
+        cv::Point2f(2007, 966)//0.1
     };
 
     std::vector<cv::Point2f> realPoints = {
-        cv::Point2f(53272, 9943), // Replace with actual real world coordinates
-        cv::Point2f(60295, 8102), // corresponding to the image points above
-        cv::Point2f(62750, 2829)
+        cv::Point2f(58545, 22818), // Replace with actual real world coordinates
+        cv::Point2f(62818, 33727), // corresponding to the image points above
+        cv::Point2f(63000, 26272)
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
@@ -924,18 +907,6 @@ void MainWindow::onMicroCam1FrameReady(const QImage& img, int camType) {
         }
 
         // If servoing, draw center crosshair and status
-        if (m_isServoing) {
-            cv::Point center(frame.cols / 2, frame.rows / 2);
-
-            // Draw yellow crosshair at center
-            cv::drawMarker(frame, center, cv::Scalar(0, 255, 255),
-                cv::MARKER_CROSS, 40, 3);
-            cv::circle(frame, center, 20, cv::Scalar(0, 255, 255), 3);
-
-            // Draw "SERVOING..." text
-            cv::putText(frame, "SERVOING...", cv::Point(50, 50),
-                cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(0, 255, 0), 3);
-        }
 
         cv::Mat rgbImg;
         cv::cvtColor(frame, rgbImg, cv::COLOR_BGR2RGB);
@@ -960,20 +931,6 @@ void MainWindow::onMicroCam2FrameReady(const QImage& img, int camType) {
         // Draw annotations if any exist
         if (!m_microAnnotations2.isEmpty()) {
             drawAnnotations(frame, m_microAnnotations2, m_microComboBox);
-        }
-
-        // If servoing, draw center crosshair and status
-        if (m_isServoing) {
-            cv::Point center(frame.cols / 2, frame.rows / 2);
-
-            // Draw yellow crosshair at center
-            cv::drawMarker(frame, center, cv::Scalar(0, 255, 255),
-                cv::MARKER_CROSS, 40, 3);
-            cv::circle(frame, center, 20, cv::Scalar(0, 255, 255), 3);
-
-            // Draw "SERVOING..." text
-            cv::putText(frame, "SERVOING...", cv::Point(50, 50),
-                cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(0, 255, 0), 3);
         }
 
         cv::Mat rgbImg;
@@ -1233,8 +1190,8 @@ void MainWindow::onMicroCam1Clicked(const QPointF& scenePos, const QPointF& imag
     int classId = getSelectedMicroId();
     double normalizedX = imagePos.x() / imageWidth;
     double normalizedY = imagePos.y() / imageHeight;
-    double defaultWidth = 0.01;
-    double defaultHeight = 0.01;
+    double defaultWidth = 0.05;
+    double defaultHeight = 0.05;
 
     YoloAnnotation annotation1;
     annotation1.classId = classId;
@@ -1328,8 +1285,8 @@ void MainWindow::onMicroCam2Clicked(const QPointF& scenePos, const QPointF& imag
     int classId = getSelectedMicroId();
     double normalizedX = imagePos.x() / imageWidth;
     double normalizedY = imagePos.y() / imageHeight;
-    double defaultWidth = 0.01;
-    double defaultHeight = 0.01;
+    double defaultWidth = 0.05;
+    double defaultHeight = 0.05;
 
     YoloAnnotation annotation2;
     annotation2.classId = classId;
@@ -1397,113 +1354,13 @@ void MainWindow::onPointMatchFound(QPointF targetPoint, float confidence) {
 void MainWindow::onPointMatchFailed(const QString& reason) {
     log(QString("Point matching failed: %1").arg(reason), "WARNING");
 }
+
+
+
+
+
+
 //////////////////////////////////////////////////Visual Servoing/////////////////////////////////////////////////////
-cv::Mat MainWindow::getMicroCam1Frame() {
-    if (m_microCam1Op.camWorker) {
-        return m_microCam1Op.camWorker->getCurrentFrame();
-    }
-    return cv::Mat();
-}
-
-cv::Mat MainWindow::getMicroCam2Frame() {
-    if (m_microCam2Op.camWorker) {
-        return m_microCam2Op.camWorker->getCurrentFrame();
-    }
-    return cv::Mat();
-}
-void MainWindow::onServoIterationUpdate(int iteration, double error1, double error2) {
-    Logger::instance().log(QString("Servo iteration %1: Cam1=%2px, Cam2=%3px")
-        .arg(iteration)
-        .arg(error1, 0, 'f', 2)
-        .arg(error2, 0, 'f', 2), "INFO");
-}
-
-void MainWindow::onServoCompleted(bool success, int iterations) {
-    if (success) {
-        Logger::instance().log(QString("Visual servoing completed successfully in %1 iterations!")
-            .arg(iterations), "INFO");
-    }
-    else {
-        Logger::instance().log(QString("Visual servoing failed to converge after %1 iterations")
-            .arg(iterations), "WARNING");
-    }
-}
-
-void MainWindow::onServoError(const QString& error) {
-    Logger::instance().log(QString("Visual servoing error: %1").arg(error), "CRITICAL");
-    m_isServoing = false;
-    setMovementControlsEnabled(true);
-}
-
-void MainWindow::onServoToCenter() {
-    Logger::instance().log("Servo to Center button clicked", "INFO");
-
-    // Check if cameras are running
-    if (!m_microCam1Op.thrd || !m_microCam2Op.thrd) {
-        Logger::instance().log("Both micro cameras must be running for visual servoing", "WARNING");
-        return;
-    }
-
-    // Check if we have annotations in both cameras
-    if (m_microAnnotations1.isEmpty() || m_microAnnotations2.isEmpty()) {
-        Logger::instance().log("Please click a point in either camera first (it will auto-annotate both)", "WARNING");
-        return;
-    }
-
-    // Check if already servoing
-    if (m_isServoing) {
-        Logger::instance().log("Visual servoing already in progress", "WARNING");
-        return;
-    }
-
-    // Get frames to determine dimensions
-    cv::Mat frame1 = getMicroCam1Frame();
-    cv::Mat frame2 = getMicroCam2Frame();
-
-    if (frame1.empty() || frame2.empty()) {
-        Logger::instance().log("Cannot get camera frames for servoing", "CRITICAL");
-        return;
-    }
-
-    // Get the first annotation from each camera (most recent)
-    YoloAnnotation ann1 = m_microAnnotations1.first();
-    YoloAnnotation ann2 = m_microAnnotations2.first();
-
-    // Convert normalized coordinates to pixel coordinates
-    QPoint pixelTarget1(
-        static_cast<int>(ann1.center.x() * frame1.cols),
-        static_cast<int>(ann1.center.y() * frame1.rows)
-    );
-
-    QPoint pixelTarget2(
-        static_cast<int>(ann2.center.x() * frame2.cols),
-        static_cast<int>(ann2.center.y() * frame2.rows)
-    );
-
-    Logger::instance().log(QString("Starting visual servoing - Target Cam1: (%1, %2), Cam2: (%3, %4)")
-        .arg(pixelTarget1.x()).arg(pixelTarget1.y())
-        .arg(pixelTarget2.x()).arg(pixelTarget2.y()), "INFO");
-
-    // Disable movement controls during servoing
-    setMovementControlsEnabled(false);
-    m_isServoing = true;
-
-    // Start servoing (this will block until complete)
-    bool success = m_visualServo->servoToTarget(
-        pixelTarget1,
-        pixelTarget2,
-        [this]() { return getMicroCam1Frame(); },
-        [this]() { return getMicroCam2Frame(); }
-    );
-
-    // Re-enable controls
-    m_isServoing = false;
-    setMovementControlsEnabled(true);
-
-    if (!success) {
-        Logger::instance().log("Visual servoing did not converge to target", "WARNING");
-    }
-}
 
 
 ///////////////////////////////////////////////////
@@ -1771,11 +1628,6 @@ void MainWindow::onConfirmAdjustmentClicked() {
     Logger::info("move_and_wait: Move completed. Proceeding.");
     // Tell the traverser thread to wake up and continue
 	m_traverser->userConfirmedAdjustment();
-}
-
-void MainWindow::onInjectClicked() {
-    Logger::info("Injecting");
-
 }
 
 void MainWindow::onHomeClicked() {

@@ -17,20 +17,19 @@
 #include <QString>
 #include <functional>
 
-// Global variables structure (similar to your globle_vars)
+// Global variables structure
 struct GlobalVars {
     double current_x = 100.0;
     double current_y = 100.0;
     double current_z = 100.0;
     int max_x = 1000000;
-	int max_y = 1500000;
+    int max_y = 1500000;
     int max_z = 390000;
     int min_x = -2000;
     int min_y = -2000;
     int min_z = 0;
-	bool is_moving = false;
+    bool is_moving = false;
 };
-
 
 // Global instance declaration
 extern GlobalVars globle_vars;
@@ -55,27 +54,37 @@ private:
     };
 
     struct Scale {
-        double x = 88/ 1000.0;
-        double y = 88/ 1000.0;
+        double x = 88.0 / 1000.0;
+        double y = 88.0 / 1000.0;
         double z = 1260.0 / 1000.0;
     };
 
-	HANDLE m_serialHandle;
+    HANDLE m_serialHandle;
     Position position;
     std::string port;
     Scale scale;
+
+    // Worker thread management
     std::thread m_workerThread;
     std::queue<MoveCommand> m_commandQueue;
     std::mutex m_queueMutex;
     std::condition_variable m_condition;
     std::atomic<bool> m_stopWorker;
-        
 
+    // Sync for move_and_wait
+    std::mutex m_syncMutex;
+    std::condition_variable m_syncCondition;
+    std::atomic<bool> m_isWaitingForMoveCompletion;
+
+    // Logging callback
+    std::function<void(const QString&, const QString&)> m_logCallback;
 
     // Helper to log
     void log(const QString& message, const QString& level = "INFO") {
         try {
-            m_logCallback(message, level);
+            if (m_logCallback) {
+                m_logCallback(message, level);
+            }
         }
         catch (const std::exception& e) {
             qDebug() << "Log callback threw an exception:" << e.what();
@@ -83,27 +92,20 @@ private:
         catch (...) {
             qDebug() << "Log callback threw an unknown exception.";
         }
-
     }
-    // Member variables
-    std::function<void(const QString&, const QString&)> m_logCallback;
-    std::mutex m_syncMutex;
-    std::condition_variable m_syncCondition;
-    std::atomic<bool> m_isWaitingForMoveCompletion;
 
+    // Worker thread function
     void worker();
 
-    // Private helper method to get serial handle
+    // Private helper methods
     HANDLE getSerial();
-
     std::string readResponse(HANDLE hSerial, int maxWaitMs = 1000);
 
-    // Private helper method for actual movement
+    // Core movement function
     Position _move(double x, double y, double z, double vx, double vy, double vz, char direction);
-	Position _home();
+    Position _home();
 
 public:
-
     XYZStage(const std::string& portName = "COM5");
     ~XYZStage();
 
@@ -111,25 +113,22 @@ public:
         m_logCallback = callback;
     }
 
-
-
-    // Public move method
+    // Public move methods
     void move(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);
-	void home();    
+    void home();
 
-    // Worker Blocking move method that waits for movement to complete
+    // Blocking move method that waits for movement to complete
     void move_and_wait(double dx, double dy, double dz, double velocity_x = 10000, double velocity_y = 10000, double velocity_z = 10000);
 
     // Getter for current position
-    XYZStage::Position getPosition();
+    Position getPosition();
 
-	// currently unused
     // Getter for port
     std::string getPort() const { return port; }
 
     // Setter for port
     void setPort(const std::string& newPort) { port = newPort; }
 
+    // Get serial handle
     HANDLE getSerialHandle() { return m_serialHandle; }
-
 };

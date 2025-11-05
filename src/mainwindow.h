@@ -20,7 +20,7 @@
 #include "logger.h"
 #include "logdisplay.h"
 #include "PointMatcher.h"
-#include "VisualServoController.h"
+
 struct cameraOp
 {
     QThread* thrd;
@@ -123,7 +123,6 @@ public:
     void onTraversalStarted();
     void onWaitingForUser();
     void onConfirmAdjustmentClicked();
-    void onInjectClicked();
     void onTraversalFinished(const QString& message);
 	void onHomeClicked();
     void onArducamClicked(const QPointF& scenePos, const QPointF& imagePos);
@@ -148,6 +147,7 @@ public:
 
     void onPointMatchFailed(const QString& reason);
     
+    
     // Helper functions
     cv::Mat getMicroCam1Frame();
     cv::Mat getMicroCam2Frame();
@@ -159,6 +159,8 @@ private:
     cv::Mat calculateTransformationMatrix(const std::vector<cv::Point2f>& imagePoints,
         const std::vector<cv::Point2f>& realPoints);
     LogDisplay* m_logDisplay;
+    
+    
     // private class members
     cv::Mat m_transformMatrix;
     QVector<YoloAnnotation> m_macroAnnotations;
@@ -199,6 +201,7 @@ private:
     cv::Mat m_currentMicroImg1;
     QLabel* m_microCam1FPS = nullptr;
     cameraOp m_microCam1Op;
+
 
     ZoomableGraphicsView* m_microCam2View = nullptr;
     QGraphicsScene* m_microCam2Scene = nullptr;
@@ -253,16 +256,6 @@ private:
     QThread* m_traverserThread = nullptr;
     DetectionTraverser* m_traverser = nullptr;
     PointMatcher* m_pointMatcher;
-    VisualServoController* m_visualServo;
-    bool m_isServoing;
-
-private slots:
-    // Visual servoing slots
-    void onServoToCenter();
-    void onServoIterationUpdate(int iteration, double error1, double error2);
-    void onServoCompleted(bool success, int iterations);
-    void onServoError(const QString& error);
-
 };
 
 

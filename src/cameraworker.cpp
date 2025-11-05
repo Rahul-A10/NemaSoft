@@ -57,49 +57,54 @@ void CameraWorker::process() {
     while (true) {
         {
             QMutexLocker locker(&m_mutex);
-            // TODO: this exits the thrd if stop() is called. might want to modify this to not exit the loop but also don't process further?
             if (!m_running) break;
         }
+
         cv::Mat frame;
-        cv::Mat resized;
-        if (!m_capturedFrame.empty()) {
-            frame = m_capturedFrame;
-            QMutexLocker locker(&m_frameMutex);
-            m_currentFrame = frame.clone();
-            continue; // already rendered this frame
-        }
-        else {
-            if (m_cameraIndex == IMG) {
-                // TODO: make frame member of this class
-                std::string imgPath = "test_img.png";
-                if (!std::filesystem::exists(imgPath)) {
-                    Logger::critical(QString("Test Image file does not exist: %1").arg(QString::fromStdString(imgPath)));
-                    
-                    return;
-                }
-                frame = cv::imread(imgPath);
-                m_currentFrame = frame.clone();
-                //Logger::info(QString("Reading image: %1 dims: %2x%3").arg(QString::fromStdString(imgPath)).arg(frame.cols).arg(frame.rows));
-            }
-            else
-                m_cap >> frame;
-            if (frame.empty()) {
-                //std::cerr << "something wrong" << std::endl;
-                Logger::warning("Empty frame captured from camera");
+
+        // Always capture new frames from camera or image
+        if (m_cameraIndex == IMG) {
+            std::string imgPath = "test_img.png";
+            if (!std::filesystem::exists(imgPath)) {
+                Logger::critical(QString("Test Image file does not exist: %1")
+                    .arg(QString::fromStdString(imgPath)));
+                QThread::msleep(1000);
                 continue;
             }
-            //cv::flip(frame, frame, 1);
-            //cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
-            if (getCaptureImg()) {
-                Logger::info("Captured frame");
-                setCapturedFrame(frame);
-            }
-            // for large images, resizing helps with UI FPS
-            /*if (frame.cols > 1280 || frame.rows > 720)
-                cv::resize(frame, frame, cv::Size(1280, 720));*/
-            QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_BGR888);
-            emit frameReady(qImage.copy(), m_cameraType);
-            QThread::msleep(50);
+            frame = cv::imread(imgPath);
         }
+        else {
+            m_cap >> frame;
+        }
+
+        if (frame.empty()) {
+            Logger::warning("Empty frame captured from camera");
+            QThread::msleep(50);
+            continue;
+        }
+
+        // ALWAYS update m_currentFrame (thread-safe)
+        {
+            QMutexLocker locker(&m_frameMutex);
+            m_currentFrame = frame.clone();
+        }
+
+        // Handle capture flag
+        {
+            QMutexLocker locker(&m_mutex);
+            if (m_captureImg) {
+                Logger::info("Frame captured and stored");
+                m_capturedFrame = frame.clone();
+                m_captureImg = false; // Reset flag after capturing
+            }
+        }
+
+        // Emit the frame for display
+        QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_BGR888);
+        emit frameReady(qImage.copy(), m_cameraType);
+
+        QThread::msleep(50);
     }
+
+    Logger::info("CameraWorker process loop exited");
 }

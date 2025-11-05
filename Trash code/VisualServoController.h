@@ -28,6 +28,8 @@ public:
     void setConvergenceThreshold(double pixels);
     void setMaxIterations(int max_iter);
     void setCenterTarget(bool center); // If true, servo to center; if false, servo to clicked point
+    void setImageToStageMapping(double pixelsPerMM_X, double pixelsPerMM_Y,
+		bool invertX = false, bool invertY = false);
 
     // Get current frame centers
     QPoint getFrameCenter(const cv::Mat& frame);
@@ -49,6 +51,10 @@ private:
     double m_convergenceThreshold; // Pixel threshold for convergence
     int m_maxIterations;
     bool m_centerTarget;           // True = move to center, False = stay at clicked point
+    double m_pixelsPerMM_X;  // Pixels per mm in X direction
+    double m_pixelsPerMM_Y;  // Pixels per mm in Y direction
+    bool m_invertX;          // Flip X direction if needed
+    bool m_invertY;          // Flip Y direction if needed
 
     // Helper methods
     double calculateError(const QPoint& current, const QPoint& target);
