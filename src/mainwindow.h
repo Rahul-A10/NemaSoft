@@ -20,6 +20,7 @@
 #include "logger.h"
 #include "logdisplay.h"
 #include "PointMatcher.h"
+#include "DualStageMapping.h"
 
 struct cameraOp
 {
@@ -146,11 +147,9 @@ public:
     void onPointMatchFound(QPointF targetPoint, float confidence);
 
     void onPointMatchFailed(const QString& reason);
+	void onFocusCam1(); 
+    void onFocusCam2();
     
-    
-    // Helper functions
-    cv::Mat getMicroCam1Frame();
-    cv::Mat getMicroCam2Frame();
 
 private:
 
@@ -244,7 +243,8 @@ private:
 	//Position display and go to position
     QPushButton* m_goToPositionBtn = nullptr;
     QPushButton* m_confirmAdjustmentBtn = nullptr;
-	QPushButton* m_Inject = nullptr;
+	QPushButton* m_Focus_cam1 = nullptr;
+    QPushButton* m_Focus_cam2 = nullptr;
 	QPushButton* m_abortPathBtn = nullptr;
     QPushButton* m_resumePathBtn = nullptr;
 	QPushButton* m_homeBtn = nullptr;
@@ -256,6 +256,8 @@ private:
     QThread* m_traverserThread = nullptr;
     DetectionTraverser* m_traverser = nullptr;
     PointMatcher* m_pointMatcher;
+    DualStageMapping::CameraConfig leftCam;
+    DualStageMapping::CameraConfig rightCam;
 };
 
 

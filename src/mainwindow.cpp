@@ -23,6 +23,7 @@
 #include <opencv2/opencv.hpp>
 #include <QDockWidget>
 #include <logger.h>
+#include <DualStageMapping.h>
 
 // or more specific includes:
 #include <opencv2/core.hpp>
@@ -63,6 +64,19 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_pointMatcher, &PointMatcher::logMessage,
         this, &MainWindow::log);
 
+    // Set separate FOVs if needed
+    leftCam.origin_x = 0;
+    leftCam.origin_y = 0;
+    leftCam.fov_width = 4000;
+    leftCam.fov_height = 4000;
+
+    rightCam.origin_x = 4000; // right camera starts after left
+    rightCam.origin_y = 0;
+    rightCam.fov_width = 4000;
+    rightCam.fov_height = 4000;
+
+    DualStageMapping::calibrateCamera(leftCam);
+    DualStageMapping::calibrateCamera(rightCam);
 
 
 
@@ -280,7 +294,8 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_resumePathBtn->hide();
     m_confirmAdjustmentBtn = new QPushButton("✔");
     m_confirmAdjustmentBtn->setEnabled(false);
-	m_Inject = new QPushButton("Inject");
+	m_Focus_cam1 = new QPushButton("Focus Cam 1");
+    m_Focus_cam2 = new QPushButton("Focus Cam 2");
 	m_homeBtn = new QPushButton("🏠");
 	
 
@@ -303,7 +318,8 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_abortPathBtn->setFixedSize(30, 30);
     m_resumePathBtn->setFixedSize(30, 30);
     m_confirmAdjustmentBtn->setFixedSize(30, 30);
-	m_Inject->setFixedSize(60,30);
+    m_Focus_cam1->setFixedSize(100,30);
+    m_Focus_cam2->setFixedSize(100, 30);
     m_homeBtn->setFixedSize(30, 30);
 
     movementLayout->addWidget(m_slant1Btn, 1, 1);
@@ -326,7 +342,8 @@ QGroupBox* MainWindow::setupMovementUI() {
     movementLayout->addWidget(m_resumePathBtn, 5, 1);
     movementLayout->addWidget(m_confirmAdjustmentBtn, 5, 2);
 	movementLayout->addWidget(m_homeBtn, 5, 3);
-    movementLayout->addWidget(m_Inject, 5, 4);
+    movementLayout->addWidget(m_Focus_cam1, 5, 4);
+    movementLayout->addWidget(m_Focus_cam2, 6, 4);
 
     // Connect movement buttons to slots
     connect(m_leftFastBtn, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
@@ -348,7 +365,8 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
     //connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
     connect(m_confirmAdjustmentBtn, &QPushButton::clicked, this, &MainWindow::onConfirmAdjustmentClicked);
-    //connect(m_Inject, &QPushButton::clicked, this, &MainWindow::);
+    connect(m_Focus_cam1, &QPushButton::clicked, this, &MainWindow:: onFocusCam1);
+    connect(m_Focus_cam2, &QPushButton::clicked, this, &MainWindow::onFocusCam2);
 	connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onHomeClicked);       
     
 
@@ -1651,6 +1669,30 @@ void MainWindow::onTraversalFinished(const QString& message) {
 
 	m_predictMicroImg->setEnabled(true);
 }
+
+void MainWindow::onFocusCam1() {
+    log("Focusing MicroCam1...", "INFO");
+    if (!m_microCam1Op.thrd) {
+        log("MicroCam1 is not running. Cannot focus.", "WARNING");
+        return;
+    }
+
+    QPointF leftPoint(1000, 800);
+    QPointF rightPoint(1500, 750);
+
+    // Independent movement per camera
+    QPointF leftMove = DualStageMapping::calculateMovementForLeftCamera(leftCam, leftPoint);
+    QPointF rightMove = DualStageMapping::calculateMovementForRightCamera(rightCam, rightPoint);
+
+}
+void MainWindow::onFocusCam2() {
+    log("Focusing MicroCam2...", "INFO");
+    if (!m_microCam2Op.thrd) {
+        log("MicroCam2 is not running. Cannot focus.", "WARNING");
+        return;
+    }
+}
+
 
 void MainWindow::onTriversePath() {
         log("Path button clicked.", "INFO");
