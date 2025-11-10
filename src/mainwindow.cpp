@@ -654,7 +654,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(1, 0, 3840, 2160, 10);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(2, 0, 3840, 2160, 10);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -672,12 +672,60 @@ void MainWindow::onStartArducam() {
 
 void MainWindow::onStartDuocam() {
     if (m_microCam1Op.thrd || m_microCam2Op.thrd) {
-        // ... existing stop code ...
+        //log("stopping duo cam", "INFO");
+
+        //// Signal cameras to stop (should set internal flags)
+        //m_microCam1Op.toggleCamera();
+        //m_microCam2Op.toggleCamera();
+
+        //// Wait for threads to finish with timeout to prevent indefinite freeze
+        //if (m_microCam1Op.thrd) {
+        //    if (!m_microCam1Op.thrd->wait(3000)) {  // 3 second timeout
+        //        log("Camera 1 thread did not stop gracefully, forcing termination", "WARNING");
+        //        m_microCam1Op.thrd->terminate();
+        //        m_microCam1Op.thrd->wait();
+        //    }
+        //    m_microCam1Op.thrd = nullptr;  // Clear thread pointer
+        //}
+
+        //if (m_microCam2Op.thrd) {
+        //    if (!m_microCam2Op.thrd->wait(3000)) {
+        //        log("Camera 2 thread did not stop gracefully, forcing termination", "WARNING");
+        //        m_microCam2Op.thrd->terminate();
+        //        m_microCam2Op.thrd->wait();
+        //    }
+        //    m_microCam2Op.thrd = nullptr;  // Clear thread pointer
+        //}
+
+        //// Clean up camera 1
+        //{
+        //    QMutexLocker locker(&m_frameMutex);
+        //    m_latestMicroCam1Image = QImage();
+        //}
+        //m_microCam1View->resetTransform();
+        //m_currentMicroImg1.release();
+        //m_microAnnotations1.clear();
+        //ImageDisplay(MICROCAM1);
+
+        //// Clean up camera 2
+        //{
+        //    QMutexLocker locker(&m_frameMutex);
+        //    m_latestMicroCam2Image = QImage();
+        //}
+        //m_microCam2View->resetTransform();
+        //m_currentMicroImg2.release();
+        //m_microAnnotations2.clear();
+        //ImageDisplay(MICROCAM2);
+
+        //// Update button text
+        //m_microCam1Op.cameraBtn->setText("Start Duocam");
+
+        //log("duo cam stopped", "INFO");
         return;
     }
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(2, 1, 2720, 1536, 15);
+    m_microCam1Op.camWorker = new CameraWorker(1, 1, 2720, 1536, 15);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(),
