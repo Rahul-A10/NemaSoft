@@ -20,7 +20,7 @@
 #include "logger.h"
 #include "logdisplay.h"
 #include "PointMatcher.h"
-#include "DualStageMapping.h"
+#include "StageMapping.h"
 
 struct cameraOp
 {
@@ -152,6 +152,21 @@ public:
     
 
 private:
+    StageMapping* mapper = nullptr;
+    std::vector<PointMapping> frame1_points = {
+        {0, 0, 62931, 26806},
+        {2720, 0, 60159, 29443},
+        {2720, 1536, 58022, 26852},
+        {0, 1536, 60806, 24261},
+    };
+
+    // Frame 2 calibration data (example, replace with real measurements)
+    std::vector<PointMapping> frame2_points = {
+        {0, 0, 61170, 29454},
+        {2720, 0, 58352, 26681},
+        {2720, 1536, 60670, 24125},
+        {0, 1536, 63488, 26681},
+    };
 
     
     // Transformation methods
@@ -256,8 +271,8 @@ private:
     QThread* m_traverserThread = nullptr;
     DetectionTraverser* m_traverser = nullptr;
     PointMatcher* m_pointMatcher;
-    DualStageMapping::CameraConfig leftCam;
-    DualStageMapping::CameraConfig rightCam;
+    
+	
 };
 
 

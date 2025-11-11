@@ -23,7 +23,7 @@
 #include <opencv2/opencv.hpp>
 #include <QDockWidget>
 #include <logger.h>
-#include <DualStageMapping.h>
+#include "StageMapping.h"
 
 // or more specific includes:
 #include <opencv2/core.hpp>
@@ -65,18 +65,10 @@ MainWindow::MainWindow(QWidget* parent)
         this, &MainWindow::log);
 
     // Set separate FOVs if needed
-    leftCam.origin_x = 0;
-    leftCam.origin_y = 0;
-    leftCam.fov_width = 4000;
-    leftCam.fov_height = 4000;
+	mapper = new StageMapping();
+    mapper->setCalibrationData(CameraID::FRAME1, frame1_points);
+    mapper->setCalibrationData(CameraID::FRAME2, frame2_points);
 
-    rightCam.origin_x = 4000; // right camera starts after left
-    rightCam.origin_y = 0;
-    rightCam.fov_width = 4000;
-    rightCam.fov_height = 4000;
-
-    DualStageMapping::calibrateCamera(leftCam);
-    DualStageMapping::calibrateCamera(rightCam);
 
 
 
@@ -1724,20 +1716,61 @@ void MainWindow::onFocusCam1() {
         log("MicroCam1 is not running. Cannot focus.", "WARNING");
         return;
     }
+    if (!m_microAnnotations1.isEmpty()) {
+        cv::Mat temp_frame1;
+        temp_frame1 = m_microCam1Op.camWorker->getCurrentFrame();
+        // Use the first annotation for demonstration
+        const YoloAnnotation& ann = m_microAnnotations1[0];
+        int imageWidth = temp_frame1.cols;
+        int imageHeight = temp_frame1.rows;
 
-    QPointF leftPoint(1000, 800);
-    QPointF rightPoint(1500, 750);
+        // Convert normalized coordinates to pixel coordinates
+        double u = ann.center.x() * imageWidth;
+        double v = ann.center.y() * imageHeight;
 
-    // Independent movement per camera
-    QPointF leftMove = DualStageMapping::calculateMovementForLeftCamera(leftCam, leftPoint);
-    QPointF rightMove = DualStageMapping::calculateMovementForRightCamera(rightCam, rightPoint);
+        // Use center of image as reference (uc, vc)
+        double uc = imageWidth / 2.0;
+        double vc = imageHeight / 2.0;
 
+        Eigen::Vector2d delta1 = mapper->computeStageDelta(CameraID::FRAME2, u, v, uc, vc);
+        // Use delta2 as needed
+        log(QString("Computed stage movement is x= %1, y= %2").arg(delta1.x()).arg(delta1.y()), "INFO");
+    }
+    else {
+		log("No annotations found for MicroCam1. Cannot focus.", "WARNING");
+    }
+    
+    
 }
 void MainWindow::onFocusCam2() {
     log("Focusing MicroCam2...", "INFO");
     if (!m_microCam2Op.thrd) {
         log("MicroCam2 is not running. Cannot focus.", "WARNING");
         return;
+    }
+    
+    if (!m_microAnnotations2.isEmpty()) {
+        // Use the first annotation for demonstration
+        cv::Mat temp_frame2;
+        const YoloAnnotation& ann = m_microAnnotations2[0];
+        temp_frame2 = m_microCam2Op.camWorker->getCurrentFrame();
+        int imageWidth = temp_frame2.cols;
+        int imageHeight = temp_frame2.rows;
+
+        // Convert normalized coordinates to pixel coordinates
+        double u = ann.center.x() * imageWidth;
+        double v = ann.center.y() * imageHeight;
+
+        // Use center of image as reference (uc, vc)
+        double uc = imageWidth / 2.0;
+        double vc = imageHeight / 2.0;
+
+        Eigen::Vector2d delta2 = mapper->computeStageDelta(CameraID::FRAME2, u, v, uc, vc);
+        // Use delta2 as needed
+        log(QString("Computed stage movement is x= %1, y= %2").arg(delta2.x()).arg(delta2.y()), "INFO");
+    }
+    else {
+        log("No annotations found for MicroCam2. Cannot focus.", "WARNING");
     }
 }
 
