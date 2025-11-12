@@ -21,7 +21,7 @@ public:
     int getFrameHeight() { return m_frameHeight; };
 
     void setCaptureImg(bool val) { m_captureImg = val; }
-    bool getCaptureImg() { return m_captureImg; }
+    bool getCaptureImg() const { return m_captureImg; }
 
     void clearCapturedFrame() { m_capturedFrame.release(); }
 

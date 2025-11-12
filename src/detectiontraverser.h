@@ -46,9 +46,9 @@ private:
     QWaitCondition m_pauseCondition;
     bool m_paused;
     bool m_aborted;
-	int MIN_X = -2000;
+	int MIN_X = 0;
 	int MAX_X = 62000;
-	int MIN_Y = -2000;
+	int MIN_Y = 0;
 	int MAX_Y = 150000;
 	int min_z = 0;
 	int MAX_Z = 150000;

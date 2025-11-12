@@ -49,9 +49,10 @@ void StageMapping::setCalibrationData(CameraID camID, const std::vector<PointMap
 
 // --------------------------------------------------------------------------
 Eigen::Vector2d StageMapping::computeStageDelta(CameraID camID, double u, double v, double uc, double vc) const {
-    Eigen::Vector2d pixelDelta(uc - u, vc - v);
+    
 
     if (camID == CameraID::FRAME1) {
+        Eigen::Vector2d pixelDelta(u-uc, v-vc);
         if (!calibrated_frame1_) {
             std::cerr << "FRAME1 not calibrated!" << std::endl;
             return Eigen::Vector2d::Zero();
@@ -59,7 +60,9 @@ Eigen::Vector2d StageMapping::computeStageDelta(CameraID camID, double u, double
         return A_frame1_ * pixelDelta;
     }
     else {
+        Eigen::Vector2d pixelDelta(u - uc, v - vc);
         if (!calibrated_frame2_) {
+            
             std::cerr << "FRAME2 not calibrated!" << std::endl;
             return Eigen::Vector2d::Zero();
         }

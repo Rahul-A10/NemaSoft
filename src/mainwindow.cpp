@@ -66,8 +66,13 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Set separate FOVs if needed
 	mapper = new StageMapping();
+	
     mapper->setCalibrationData(CameraID::FRAME1, frame1_points);
-    mapper->setCalibrationData(CameraID::FRAME2, frame2_points);
+
+    mapper2 = new StageMapping();
+
+    mapper2->setCalibrationData(CameraID::FRAME2, frame2_points);
+
 
 
 
@@ -646,7 +651,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(2, 0, 3840, 2160, 10);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 10);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -736,7 +741,7 @@ void MainWindow::onStartDuocam() {
 
     // MicroCam2
     m_microCam2Op.thrd = new QThread(this);
-    m_microCam2Op.camWorker = new CameraWorker(0, 2, 2720, 1536, 15);
+    m_microCam2Op.camWorker = new CameraWorker(2, 2, 2720, 1536, 15);
     m_microCam2Op.camWorker->moveToThread(m_microCam2Op.thrd);
 
     m_microCam2View->scale((float)m_microCam2View->width() / m_microCam2Op.camWorker->getFrameWidth(),
@@ -763,6 +768,7 @@ void MainWindow::onCaptureMacroImg() {
         return;
     }
 
+
     m_arducamOp.camWorker->setCaptureImg(true);
 	QThread::msleep(300); // waiting to capture the image
 	m_currentMacroImg = m_arducamOp.camWorker->getCaturedFrame().clone();
@@ -782,6 +788,15 @@ void MainWindow::onCaptureMacroImg() {
     // 2. Create file name based on date and time
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
     QString filePath = folderPath + "/" + timestamp + ".png";
+    m_arducamOp.camWorker->stop();
+    ImageDisplay(ARDUCAM);
+
+    // **FIX: Update button text to show camera is stopped**
+    if (m_arducamOp.cameraBtn) {
+        m_arducamOp.cameraBtn->setText("Restart Arducam");
+    }
+
+    log("Macro image captured successfully. Camera feed stopped.", "INFO");
 
     // 3. Save using OpenCV imwrite
     if (!m_currentMacroImg.empty()) {
@@ -791,6 +806,8 @@ void MainWindow::onCaptureMacroImg() {
     else {
         log("Captured macro image is empty. Not saving.", "WARNING");
     }
+    // **FIX: Display the captured image**
+   
     
     
 }
@@ -814,13 +831,16 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
     cv::Mat resized;
     cv::resize(frame, resized, cv::Size(3840, 2160));
     cv::cvtColor(resized, resized, cv::COLOR_BGR2RGB);
-    QImage qImage(resized.data, resized.cols, resized.rows, resized.step, QImage::Format_RGB888);
-    updateFrame(qImage.copy(), ARDUCAM);
+    QImage annotatedImg(resized.data, resized.cols, resized.rows,
+        resized.step, QImage::Format_RGB888);
+    updateFrame(annotatedImg.copy(), ARDUCAM);
+
     // copy the boxCentroids to use them later to change the color of detected boxes once processed
     m_macroImgPath = boxCentroids;
     // Clean up inference worker and thread
     m_macroImgInference.free();
     m_arducamOp.toggleCamera();
+	ImageDisplay(ARDUCAM);
 
     m_arducamOp.cameraBtn->setText("Restart Arducam");
 
@@ -874,43 +894,35 @@ void MainWindow::onPredictMacroImg() {
     // Check if manual annotations already exist
     if (!m_macroAnnotations.isEmpty()) {
         log("Manual annotations detected. Using existing annotations for path traversal.", "INFO");
-
         // Filter annotations with class ID 1 and convert to cv::Rect
         std::vector<cv::Rect> manualBoxes;
         for (const YoloAnnotation& ann : m_macroAnnotations) {
             if (ann.classId == 1) {
-                // Convert normalized coordinates to pixel coordinates
-                int imageWidth = m_currentMacroImg.cols;
-                int imageHeight = m_currentMacroImg.rows;
-
+                // **FIX: Use m_currentMacroImgdata consistently**
+                int imageWidth = m_currentMacroImgdata.cols;
+                int imageHeight = m_currentMacroImgdata.rows;
                 float centerX = ann.center.x() * imageWidth;
                 float centerY = ann.center.y() * imageHeight;
                 float boxWidth = ann.width * imageWidth;
                 float boxHeight = ann.height * imageHeight;
-
                 // Create box with top-left corner coordinates
                 int x = static_cast<int>(centerX - boxWidth / 2.0f);
                 int y = static_cast<int>(centerY - boxHeight / 2.0f);
                 int w = static_cast<int>(boxWidth);
                 int h = static_cast<int>(boxHeight);
-
                 // Clamp to image bounds
-                x = max(0,min(x, imageWidth - w));
-                y = max(0,min(y, imageHeight - h));
-                w = max(1,min(w, imageWidth - x));
-                h = max(1,min(h, imageHeight - y));
-
+                x = max(0, min(x, imageWidth - w));
+                y = max(0, min(y, imageHeight - h));
+                w = max(1, min(w, imageWidth - x));
+                h = max(1, min(h, imageHeight - y));
                 cv::Rect box(x, y, w, h);
                 manualBoxes.push_back(box);
             }
         }
-
-
         log(QString("Passing %1 manual annotations to InferenceWorker").arg(manualBoxes.size()), "INFO");
-
-        // Create InferenceWorker with manual boxes
+        // **FIX: Use m_currentMacroImgdata**
         m_macroImgInference.thrd = new QThread(this);
-        m_macroImgInference.infWorker = new InferenceWorker(m_currentMacroImg.cols, m_currentMacroImg.rows, m_currentMacroImg, manualBoxes);
+        m_macroImgInference.infWorker = new InferenceWorker(m_currentMacroImgdata.cols, m_currentMacroImgdata.rows, m_currentMacroImgdata, manualBoxes);
         m_macroImgInference.infWorker->moveToThread(m_macroImgInference.thrd);
         connect(m_macroImgInference.thrd, &QThread::started, m_macroImgInference.infWorker, &InferenceWorker::predictWithManualBoxes);
         connect(m_macroImgInference.infWorker, &InferenceWorker::frameProcessed, this, &MainWindow::inferenceResult);
@@ -923,7 +935,9 @@ void MainWindow::onPredictMacroImg() {
         log("Arducam thread is not running or inference is already in progress.", "WARNING");
         return;
     }
-    if (!m_arducamOp.camWorker->getCaptureImg()) {
+
+    // **CRITICAL FIX: This condition is backwards!**
+    if (m_currentMacroImgdata.empty()) {  // Changed from !m_currentMacroImgdata.empty()
         log("No captured frame to process. Please capture an image first.", "WARNING");
         return;
     }
@@ -933,19 +947,17 @@ void MainWindow::onPredictMacroImg() {
         log(QString("Model file does not exist: %1").arg(QString::fromStdString(modelPath)), "CRITICAL");
         return;
     }
-
     m_arducamOp.camWorker->stop();
 
-    {
-        log("Starting inference on captured macro image...", "INFO");
-        m_macroImgInference.thrd = new QThread(this);
-        m_macroImgInference.infWorker = new InferenceWorker(m_currentMacroImg.cols, m_currentMacroImg.rows, m_currentMacroImg);
-        m_macroImgInference.infWorker->moveToThread(m_macroImgInference.thrd);
-        connect(m_macroImgInference.thrd, &QThread::started, m_macroImgInference.infWorker, &InferenceWorker::predict);
-        connect(m_macroImgInference.infWorker, &InferenceWorker::frameProcessed, this, &MainWindow::inferenceResult);
-        connect(m_macroImgInference.thrd, &QThread::finished, m_macroImgInference.infWorker, &QObject::deleteLater);
-        m_macroImgInference.thrd->start();
-    }
+    log("Starting inference on captured macro image...", "INFO");
+    m_macroImgInference.thrd = new QThread(this);
+    // **FIX: Use m_currentMacroImgdata**
+    m_macroImgInference.infWorker = new InferenceWorker(m_currentMacroImgdata.cols, m_currentMacroImgdata.rows, m_currentMacroImgdata);
+    m_macroImgInference.infWorker->moveToThread(m_macroImgInference.thrd);
+    connect(m_macroImgInference.thrd, &QThread::started, m_macroImgInference.infWorker, &InferenceWorker::predict);
+    connect(m_macroImgInference.infWorker, &InferenceWorker::frameProcessed, this, &MainWindow::inferenceResult);
+    connect(m_macroImgInference.thrd, &QThread::finished, m_macroImgInference.infWorker, &QObject::deleteLater);
+    m_macroImgInference.thrd->start();
 }
 
 //----------------------------------------------DATA CAPTURE------------------------------------------------------------
@@ -1004,23 +1016,36 @@ void MainWindow::onMicroCam2FrameReady(const QImage& img, int camType) {
 
 void MainWindow::ImageDisplay(cameraType cam) {
     cv::Mat img;
-    QVector<YoloAnnotation>  annotations;
+    QVector<YoloAnnotation> annotations;
     QComboBox* combobox;
-
 
     if (cam == ARDUCAM) {
         log("Updating Macro Image Display with annotations", "INFO");
-        img = m_currentMacroImg;
+
+        if (m_currentMacroImgdata.empty()) {
+            log("No macro image to display", "WARNING");
+            return;
+        }
+
+        // **FIX: Clone the image before drawing on it**
+        img = m_currentMacroImgdata.clone();
         annotations = m_macroAnnotations;
         combobox = m_macroComboBox;
 
+        drawAnnotations(img, annotations, combobox);
+
+        cv::Mat rgbImg;
+        cv::cvtColor(img, rgbImg, cv::COLOR_BGR2RGB);
+        QImage qImg(rgbImg.data, rgbImg.cols, rgbImg.rows, rgbImg.step, QImage::Format_RGB888);
+        updateFrame(qImg.copy(), cam);
+        return;
     }
     else if (cam == MICROCAM1) {
         log("Updating MicroCam1 Image Display with annotations", "INFO");
-        img = m_microCam1Op.camWorker->getCurrentFrame();
+        img = m_microCam1Op.camWorker->getCurrentFrame().clone();  // **FIX: Clone here too**
         annotations = m_microAnnotations1;
         combobox = m_microComboBox;
-        drawAnnotations(img, m_microAnnotations1, m_microComboBox);
+        drawAnnotations(img, annotations, combobox);
         cv::Mat rgbImg;
         cv::cvtColor(img, rgbImg, cv::COLOR_BGR2RGB);
         QImage qImg(rgbImg.data, rgbImg.cols, rgbImg.rows, rgbImg.step, QImage::Format_RGB888);
@@ -1029,69 +1054,28 @@ void MainWindow::ImageDisplay(cameraType cam) {
     }
     else if (cam == MICROCAM2) {
         log("Updating MicroCam2 Image Display with annotations", "INFO");
-        img = m_currentMicroImg2;
+
+        if (m_currentMicroImg2.empty()) {
+            log("No micro image 2 to display", "WARNING");
+            return;
+        }
+
+        img = m_currentMicroImg2.clone();  // **FIX: Clone here too**
         annotations = m_microAnnotations2;
         combobox = m_microComboBox;
-        drawAnnotations(img, m_microAnnotations1, m_microComboBox);
+        // **FIX: Use correct annotation vector**
+        drawAnnotations(img, annotations, combobox);
+
+        cv::Mat rgbImg;
+        cv::cvtColor(img, rgbImg, cv::COLOR_BGR2RGB);
+        QImage qImg(rgbImg.data, rgbImg.cols, rgbImg.rows, rgbImg.step, QImage::Format_RGB888);
+        updateFrame(qImg.copy(), cam);
         return;
     }
     else {
         log("Unknown camera type for image display", "WARNING");
         return;
     }
-
-    if (img.empty()) {
-        log("No image to update display", "WARNING");
-        return;
-    }
-
-    // Clone the original image
-    cv::Mat displayImg = img.clone();
-    int imageWidth = displayImg.cols;
-    int imageHeight = displayImg.rows;
-
-    // Draw all annotation boxes
-    for (int i = 0; i < annotations.size(); ++i) {
-        const YoloAnnotation& ann = annotations[i];
-
-        // Convert normalized coordinates to pixel coordinates
-        double centerX = ann.center.x() * imageWidth;
-        double centerY = ann.center.y() * imageHeight;
-        double boxWidth = ann.width * imageWidth;
-        double boxHeight = ann.height * imageHeight;
-
-        // Calculate top-left corner
-        int x = static_cast<int>(centerX - boxWidth / 2.0);
-        int y = static_cast<int>(centerY - boxHeight / 2.0);
-        int w = static_cast<int>(boxWidth);
-        int h = static_cast<int>(boxHeight);
-
-        // Get color for current class
-        cv::Scalar color = getColorForClass(ann.classId);
-
-        // Draw rectangle
-        cv::rectangle(displayImg, cv::Rect(x, y, w, h), color, 2);
-
-        // Find the class name in the combo box by searching for the matching ID
-        QString className = "";
-        for (int idx = 0; idx < combobox->count(); ++idx) {
-            if (combobox->itemData(idx).toInt() == ann.classId) {
-                className = combobox->itemText(idx);
-                break;
-            }
-        }
-
-        // Draw class ID label
-        std::string label = className.toStdString();
-        cv::putText(displayImg, label, cv::Point(x, y - 5),
-            cv::FONT_HERSHEY_SIMPLEX, 1.5, color, 3);
-    }
-
-    // Convert to QImage
-    cv::Mat rgbImg;
-    cv::cvtColor(displayImg, rgbImg, cv::COLOR_BGR2RGB);
-    QImage qImg(rgbImg.data, rgbImg.cols, rgbImg.rows, rgbImg.step, QImage::Format_RGB888);
-    updateFrame(qImg.copy(), cam);
 }
 void MainWindow::drawAnnotations(cv::Mat& img, const QVector<YoloAnnotation>& annotations, QComboBox* combobox) {
     int imageWidth = img.cols;
@@ -1160,14 +1144,14 @@ void MainWindow::onArducamClicked(const QPointF& scenePos, const QPointF& imageP
         .arg(QString::number(imagePos.x()) + "," + QString::number(imagePos.y())), "INFO");
     
     // Check if we have a captured macro image
-    if (m_currentMacroImg.empty()) {
+    if (m_currentMacroImgdata.empty()) {
         log("No macro image captured yet", "INFO");
         return;
     }
     
     // Get image dimensions from the OpenCV Mat
-    int imageWidth = m_currentMacroImg.cols;
-    int imageHeight = m_currentMacroImg.rows;
+    int imageWidth = m_currentMacroImgdata.cols;
+    int imageHeight = m_currentMacroImgdata.rows;
     
     // Check if click is inside any existing bounding box (for deletion)
     for (int i = m_macroAnnotations.size() - 1; i >= 0; --i) {
@@ -1270,41 +1254,41 @@ void MainWindow::onMicroCam1Clicked(const QPointF& scenePos, const QPointF& imag
         return;
     }
 
-    log("Searching for corresponding point in MicroCam2...", "INFO");
+    //log("Searching for corresponding point in MicroCam2...", "INFO");
 
-    QPointF correspondingPoint;
-    bool found = m_pointMatcher->findCorrespondingPoint(
-        currentFrame1,
-        currentFrame2,
-        imagePos,
-        correspondingPoint
-    );
+    //QPointF correspondingPoint;
+    //bool found = m_pointMatcher->findCorrespondingPoint(
+    //    currentFrame1,
+    //    currentFrame2,
+    //    imagePos,
+    //    correspondingPoint
+    //);
 
-    if (found) {
-        // Add annotation to Cam2
-        int imageWidth2 = currentFrame2.cols;
-        int imageHeight2 = currentFrame2.rows;
+    //if (found) {
+    //    // Add annotation to Cam2
+    //    int imageWidth2 = currentFrame2.cols;
+    //    int imageHeight2 = currentFrame2.rows;
 
-        double normalizedX2 = correspondingPoint.x() / imageWidth2;
-        double normalizedY2 = correspondingPoint.y() / imageHeight2;
+    //    double normalizedX2 = correspondingPoint.x() / imageWidth2;
+    //    double normalizedY2 = correspondingPoint.y() / imageHeight2;
 
-        YoloAnnotation annotation2;
-        annotation2.classId = classId;
-        annotation2.center = QPointF(normalizedX2, normalizedY2);
-        annotation2.width = defaultWidth;
-        annotation2.height = defaultHeight;
+    //    YoloAnnotation annotation2;
+    //    annotation2.classId = classId;
+    //    annotation2.center = QPointF(normalizedX2, normalizedY2);
+    //    annotation2.width = defaultWidth;
+    //    annotation2.height = defaultHeight;
 
-        m_microAnnotations2.append(annotation2);
+    //    m_microAnnotations2.append(annotation2);
 
-        float confidence = m_pointMatcher->getLastMatchConfidence();
-        log(QString("Corresponding point added to MicroCam2 at (%1, %2) with confidence %3")
-            .arg(correspondingPoint.x())
-            .arg(correspondingPoint.y())
-            .arg(confidence), "INFO");
-    }
-    else {
-        log("Could not find corresponding point in MicroCam2. Annotation added only to MicroCam1.", "WARNING");
-    }
+    //    float confidence = m_pointMatcher->getLastMatchConfidence();
+    //    log(QString("Corresponding point added to MicroCam2 at (%1, %2) with confidence %3")
+    //        .arg(correspondingPoint.x())
+    //        .arg(correspondingPoint.y())
+    //        .arg(confidence), "INFO");
+    //}
+    //else {
+    //    log("Could not find corresponding point in MicroCam2. Annotation added only to MicroCam1.", "WARNING");
+    //}
 }
 
 
@@ -1365,41 +1349,41 @@ void MainWindow::onMicroCam2Clicked(const QPointF& scenePos, const QPointF& imag
         return;
     }
 
-    log("Searching for corresponding point in MicroCam1...", "INFO");
+    //log("Searching for corresponding point in MicroCam1...", "INFO");
 
-    QPointF correspondingPoint;
-    bool found = m_pointMatcher->findCorrespondingPoint(
-        currentFrame2,
-        currentFrame1,
-        imagePos,
-        correspondingPoint
-    );
+    //QPointF correspondingPoint;
+    //bool found = m_pointMatcher->findCorrespondingPoint(
+    //    currentFrame2,
+    //    currentFrame1,
+    //    imagePos,
+    //    correspondingPoint
+    //);
 
-    if (found) {
-        // Add annotation to Cam1
-        int imageWidth1 = currentFrame1.cols;
-        int imageHeight1 = currentFrame1.rows;
+    //if (found) {
+    //    // Add annotation to Cam1
+    //    int imageWidth1 = currentFrame1.cols;
+    //    int imageHeight1 = currentFrame1.rows;
 
-        double normalizedX1 = correspondingPoint.x() / imageWidth1;
-        double normalizedY1 = correspondingPoint.y() / imageHeight1;
+    //    double normalizedX1 = correspondingPoint.x() / imageWidth1;
+    //    double normalizedY1 = correspondingPoint.y() / imageHeight1;
 
-        YoloAnnotation annotation1;
-        annotation1.classId = classId;
-        annotation1.center = QPointF(normalizedX1, normalizedY1);
-        annotation1.width = defaultWidth;
-        annotation1.height = defaultHeight;
+    //    YoloAnnotation annotation1;
+    //    annotation1.classId = classId;
+    //    annotation1.center = QPointF(normalizedX1, normalizedY1);
+    //    annotation1.width = defaultWidth;
+    //    annotation1.height = defaultHeight;
 
-        m_microAnnotations1.append(annotation1);
+    //    m_microAnnotations1.append(annotation1);
 
-        float confidence = m_pointMatcher->getLastMatchConfidence();
-        log(QString("Corresponding point added to MicroCam1 at (%1, %2) with confidence %3")
-            .arg(correspondingPoint.x())
-            .arg(correspondingPoint.y())
-            .arg(confidence), "INFO");
-    }
-    else {
-        log("Could not find corresponding point in MicroCam1. Annotation added only to MicroCam2.", "WARNING");
-    }
+    //    float confidence = m_pointMatcher->getLastMatchConfidence();
+    //    log(QString("Corresponding point added to MicroCam1 at (%1, %2) with confidence %3")
+    //        .arg(correspondingPoint.x())
+    //        .arg(correspondingPoint.y())
+    //        .arg(confidence), "INFO");
+    //}
+    //else {
+    //    log("Could not find corresponding point in MicroCam1. Annotation added only to MicroCam2.", "WARNING");
+    //}
 }
 
 void MainWindow::onPointMatchFound(QPointF targetPoint, float confidence) {
@@ -1732,8 +1716,11 @@ void MainWindow::onFocusCam1() {
         double uc = imageWidth / 2.0;
         double vc = imageHeight / 2.0;
 
-        Eigen::Vector2d delta1 = mapper->computeStageDelta(CameraID::FRAME2, u, v, uc, vc);
+        Eigen::Vector2d delta1 = mapper->computeStageDelta(CameraID::FRAME1, u, v, uc, vc);
         // Use delta2 as needed
+        delta1 = -delta1;
+        m_xyzStage.move(delta1.x(), 0, 0);
+        m_xyzStage.move(0, delta1.y(), 0);
         log(QString("Computed stage movement is x= %1, y= %2").arg(delta1.x()).arg(delta1.y()), "INFO");
     }
     else {
@@ -1765,9 +1752,12 @@ void MainWindow::onFocusCam2() {
         double uc = imageWidth / 2.0;
         double vc = imageHeight / 2.0;
 
-        Eigen::Vector2d delta2 = mapper->computeStageDelta(CameraID::FRAME2, u, v, uc, vc);
+        Eigen::Vector2d delta2 = mapper2->computeStageDelta(CameraID::FRAME2, u, v, uc, vc);
         // Use delta2 as needed
         log(QString("Computed stage movement is x= %1, y= %2").arg(delta2.x()).arg(delta2.y()), "INFO");
+
+        m_xyzStage.move(delta2.x(), 0, 0);
+        m_xyzStage.move(0, delta2.y(), 0);
     }
     else {
         log("No annotations found for MicroCam2. Cannot focus.", "WARNING");

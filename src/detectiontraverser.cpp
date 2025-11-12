@@ -75,7 +75,7 @@ void DetectionTraverser::process()
         // Calculate deltas from the *current actual position*
         double deltaX = targetPoint.x - globle_vars.current_x;
         double deltaY = targetPoint.y - globle_vars.current_y;
-        double deltaZ = 26650 - globle_vars.current_z; // Constant Z target
+        double deltaZ = 27450 - globle_vars.current_z; // Constant Z target
 
         Logger::info(QString("Point %1/%2: Moving...").arg(i + 1).arg(realCoordinates.size()));
         // Use the new BLOCKING move function

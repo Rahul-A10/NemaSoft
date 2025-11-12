@@ -153,6 +153,8 @@ public:
 
 private:
     StageMapping* mapper = nullptr;
+	StageMapping* mapper2 = nullptr;
+
     std::vector<PointMapping> frame1_points = {
         {0, 0, 62931, 26806},
         {2720, 0, 60159, 29443},
@@ -162,10 +164,10 @@ private:
 
     // Frame 2 calibration data (example, replace with real measurements)
     std::vector<PointMapping> frame2_points = {
-        {0, 0, 61170, 29454},
-        {2720, 0, 58352, 26681},
-        {2720, 1536, 60670, 24125},
-        {0, 1536, 63488, 26681},
+        {0, 0, 65488, 24409},
+        {2720, 0, 62761, 27000},
+        {2720, 1536, 60397, 24454},
+        {0, 1536, 63306, 21818},
     };
 
     
