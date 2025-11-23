@@ -855,15 +855,15 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(1833 , 1013),   // Replace with actual image coordinates // i
-        cv::Point2f(2193, 1105),   // from your calibration process// center
-        cv::Point2f(2007, 966)//0.1
+        cv::Point2f(1981 , 795),   // Replace with actual image coordinates // i
+        cv::Point2f(2088, 1001),   // from your calibration process// center
+        cv::Point2f(1804, 760)//0.1
     };
 
     std::vector<cv::Point2f> realPoints = {
-        cv::Point2f(58545, 22818), // Replace with actual real world coordinates
-        cv::Point2f(62818, 33727), // corresponding to the image points above
-        cv::Point2f(63000, 26272)
+        cv::Point2f(60772, 27545), // Replace with actual real world coordinates
+        cv::Point2f(57409, 34181), // corresponding to the image points above
+        cv::Point2f(58272, 22318)
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
@@ -1690,7 +1690,6 @@ void MainWindow::onTraversalFinished(const QString& message) {
         m_traverserThread->wait(); // ensure it's finished
         m_traverserThread = nullptr;
     }
-
 	m_predictMicroImg->setEnabled(true);
 }
 
