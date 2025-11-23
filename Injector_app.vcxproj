@@ -145,6 +145,9 @@
   <ItemGroup>
     <ResourceCompile Include="NemaSoft.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="commands.sh" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
     <Import Project="$(QtMsBuild)\qt.targets" />

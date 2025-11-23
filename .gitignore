@@ -367,3 +367,10 @@ FodyWeavers.xsd
 /cam_3.jpg
 /test_img*.jpg
 /tile_*.jpg
+
+# Build outputs and libs
+bin/
+obj/
+x64/
+*.dll
+*.pdb
