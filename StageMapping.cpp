@@ -52,7 +52,9 @@ Eigen::Vector2d StageMapping::computeStageDelta(CameraID camID, double u, double
     
 
     if (camID == CameraID::FRAME1) {
-        Eigen::Vector2d pixelDelta(u-uc, v-vc);
+        double du = u - uc;
+        double dv = v - vc;
+        Eigen::Vector2d pixelDelta(du,dv);
         if (!calibrated_frame1_) {
             std::cerr << "FRAME1 not calibrated!" << std::endl;
             return Eigen::Vector2d::Zero();
@@ -60,7 +62,9 @@ Eigen::Vector2d StageMapping::computeStageDelta(CameraID camID, double u, double
         return A_frame1_ * pixelDelta;
     }
     else {
-        Eigen::Vector2d pixelDelta(u - uc, v - vc);
+        double du = u - uc;
+        double dv = v - vc;
+        Eigen::Vector2d pixelDelta(du, dv);
         if (!calibrated_frame2_) {
             
             std::cerr << "FRAME2 not calibrated!" << std::endl;
