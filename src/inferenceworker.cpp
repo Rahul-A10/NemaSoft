@@ -17,25 +17,29 @@ InferenceWorker::InferenceWorker(int frameWidth, int frameHeight, cv::Mat& img, 
     readClassNames();
 }
 void InferenceWorker::predictWithManualBoxes() {
-    QMutexLocker locker(&m_mutex);
-
-    if (m_inputFrame.empty()) {
-        Logger::warning("Input frame is empty. Cannot process manual annotations.");
-        return;
+    // Copy input frame under lock then operate on the copy to avoid long-held locks
+    cv::Mat frameCopy;
+    {
+        QMutexLocker locker(&m_mutex);
+        if (m_inputFrame.empty()) {
+            Logger::warning("Input frame is empty. Cannot process manual annotations.");
+            return;
+        }
+        frameCopy = m_inputFrame.clone();
     }
 
     if (m_manualBoxes.empty()) {
         Logger::warning("No manual boxes provided.");
-        emit frameProcessed(m_inputFrame, {});
+        emit frameProcessed(frameCopy, {});
         return;
     }
 
     Logger::info(QString("Processing %1 manual annotations").arg(m_manualBoxes.size()));
 
-    // Draw boxes on the image
+    // Draw boxes on the local copy
     for (const auto& box : m_manualBoxes) {
-        cv::rectangle(m_inputFrame, box, cv::Scalar(0, 255, 0), 2);
-        cv::putText(m_inputFrame, "Manual", cv::Point(box.x, box.y - 5),
+        cv::rectangle(frameCopy, box, cv::Scalar(0, 255, 0), 2);
+        cv::putText(frameCopy, "Manual", cv::Point(box.x, box.y - 5),
             cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
     }
 
@@ -43,13 +47,13 @@ void InferenceWorker::predictWithManualBoxes() {
     std::vector<cv::Rect> path = shortestPath(m_manualBoxes);
 
     // Draw path
-    for (int i = 0; i < path.size() - 1; ++i) {
+    for (int i = 0; i < static_cast<int>(path.size()) - 1; ++i) {
         cv::Point center1 = (path[i].tl() + path[i].br()) * 0.5;
         cv::Point center2 = (path[i + 1].tl() + path[i + 1].br()) * 0.5;
-        cv::line(m_inputFrame, center1, center2, cv::Scalar(255, 0, 0), 2);
+        cv::line(frameCopy, center1, center2, cv::Scalar(255, 0, 0), 2);
     }
 
-    emit frameProcessed(m_inputFrame, path);
+    emit frameProcessed(frameCopy, path);
 }
 
 InferenceWorker::~InferenceWorker() {
@@ -136,8 +140,6 @@ std::vector<cv::Mat> InferenceWorker::splitImageIntoQuadrants(const cv::Mat& ima
             cv::Rect tileRect(x, y, tileWidth, tileHeight);
             if (x + tileWidth <= image.cols && y + tileHeight <= image.rows) {
                 quadrants.push_back(image(tileRect));
-				cv::String tileName = "tile_" + std::to_string(i) + "_" + std::to_string(j) + ".jpg";
-                cv::imwrite(tileName, image(tileRect));
             }
         }
 	}
@@ -274,18 +276,18 @@ cv::Rect InferenceWorker::createBoxForQuadrant(float cx, float cy, float w, floa
     return cv::Rect(cv::Point(x1, y1), cv::Point(x2, y2));
 }
 
-std::vector<cv::Rect> InferenceWorker::drawBoxes(std::vector<cv::Rect>& boxes, std::vector<int>& classIds, 
+std::vector<cv::Rect> InferenceWorker::drawBoxes(cv::Mat& frameToDraw, std::vector<cv::Rect>& boxes, std::vector<int>& classIds, 
                                    std::vector<float>& confidences, std::vector<int>& indices) {
 	std::vector<cv::Rect> centroids;
 	centroids.reserve(indices.size());
 
-    for (int i = 0; i < indices.size(); i++) {
+    for (int i = 0; i < static_cast<int>(indices.size()); i++) {
         int idx = indices[i];
         cv::Rect box = boxes[idx];
         int class_id = classIds[idx];
         
-        // Draw the bounding box
-        cv::rectangle(m_inputFrame, box, cv::Scalar(0, 0, 0), 2);
+        // Draw the bounding box on the provided frame
+        cv::rectangle(frameToDraw, box, cv::Scalar(0, 0, 0), 2);
         
         // Draw the class label
         std::string label = m_classNames[class_id] + " " + std::to_string(confidences[idx]).substr(0, 4);
@@ -294,14 +296,8 @@ std::vector<cv::Rect> InferenceWorker::drawBoxes(std::vector<cv::Rect>& boxes, s
         int baseline = 0;
         cv::Size textSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseline);
         
-        // Draw background rectangle
-        /*cv::rectangle(m_inputFrame,
-                     cv::Point(box.x, box.y - textSize.height - baseline),
-                     cv::Point(box.x + textSize.width, box.y),
-                     cv::Scalar(0, 255, 0), -1);*/
-        
         // Draw text
-        cv::putText(m_inputFrame, label, cv::Point(box.x, box.y - baseline), 
+        cv::putText(frameToDraw, label, cv::Point(box.x, box.y - baseline), 
                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 2);
 
 		centroids.push_back(box);
@@ -506,8 +502,8 @@ void InferenceWorker::processOutput(Ort::Value& output, cv::Mat& originalImage) 
     std::vector<int> indices;
     cv::dnn::NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, OVERLAP_THRESHOLD, indices);
     
-    // Draw results
-    drawBoxes(boxes, classIds, confidences, indices);
+    // Draw results onto the provided originalImage
+    std::vector<cv::Rect> centroids = drawBoxes(originalImage, boxes, classIds, confidences, indices);
     Logger::info(QString("Valid detections found - %1").arg(indices.size()));
 }
 
@@ -576,7 +572,7 @@ std::vector<cv::Rect> InferenceWorker::processBatchedOutput(Ort::Value& output, 
                 //cv::Rect box = createBoxForQuadrant(cx, cy, w, h, scaleX, scaleY, b, halfWidth, halfHeight);
                 cv::Rect box = createBoxForQuadrant(cx, cy, w, h, scaleX, scaleY, b + 1, tileWidth, tileHeight);
                 allBoxes.push_back(box);
-				allCentroids.push_back(cv::Point(cx * scaleX, cy * scaleY));
+			allCentroids.push_back(cv::Point(cx * scaleX, cy * scaleY));
             }
         }
     }
@@ -592,30 +588,33 @@ std::vector<cv::Rect> InferenceWorker::processBatchedOutput(Ort::Value& output, 
 
     Logger::info(QString("Valid detections found - %1").arg(finalIndices.size()));
     
-    // Draw results
-    std::vector<cv::Rect> centroids = drawBoxes(allBoxes, allClassIds, allConfidences, finalIndices);
+    // Draw results onto the provided originalImage
+    std::vector<cv::Rect> centroids = drawBoxes(originalImage, allBoxes, allClassIds, allConfidences, finalIndices);
 	std::vector<cv::Rect> path = shortestPath(centroids);
     
-    for (int i = 0; i < path.size() - 1; ++i) {
-        cv::line(m_inputFrame,  (path[i].tl() + path[i].br()) * 0.5, (path[i + 1].tl() + path[i + 1].br()) * 0.5, cv::Scalar(255, 0, 0), 2);
+    for (int i = 0; i < static_cast<int>(path.size()) - 1; ++i) {
+        cv::line(originalImage,  (path[i].tl() + path[i].br()) * 0.5, (path[i + 1].tl() + path[i + 1].br()) * 0.5, cv::Scalar(255, 0, 0), 2);
 	}
 
     return path;
 }
 
 void InferenceWorker::predict() {
-    QMutexLocker locker(&m_mutex);
-    
-    if (m_inputFrame.empty()) {
-        Logger::warning("Input frame is empty. Cannot run inference.");
-        return;
-	}
+    // Copy the frame under lock to avoid holding the mutex during heavy inference
+    cv::Mat frameCopy;
+    {
+        QMutexLocker locker(&m_mutex);
+        if (m_inputFrame.empty()) {
+            Logger::warning("Input frame is empty. Cannot run inference.");
+            return;
+        }
+        frameCopy = m_inputFrame.clone();
+    }
 
 	START_TIMER(predictionTotal);
     // Use batched inference for better performance
-    //runModel(m_inputFrame);
-    std::vector<cv::Rect> boxCentroids = runBatchedModel(m_inputFrame);
+    std::vector<cv::Rect> boxCentroids = runBatchedModel(frameCopy);
 	END_TIMER(predictionTotal);
     
-    emit frameProcessed(m_inputFrame, boxCentroids);
+    emit frameProcessed(frameCopy, boxCentroids);
 }

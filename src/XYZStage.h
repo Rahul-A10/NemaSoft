@@ -19,16 +19,17 @@
 
 // Global variables structure
 struct GlobalVars {
-    double current_x = 100.0;
-    double current_y = 100.0;
-    double current_z = 100.0;
+    // Make position values atomic to avoid data races when read from multiple threads
+    std::atomic<double> current_x{100.0};
+    std::atomic<double> current_y{100.0};
+    std::atomic<double> current_z{100.0};
     int max_x = 1000000;
     int max_y = 1500000;
     int max_z = 390000;
     int min_x = -2000;
     int min_y = -2000;
     int min_z = 0;
-    bool is_moving = false;
+    std::atomic<bool> is_moving{false};
 };
 
 // Global instance declaration

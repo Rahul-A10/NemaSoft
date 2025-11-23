@@ -170,9 +170,9 @@ MainWindow::MainWindow(QWidget* parent)
     m_positionUpdateTimer = new QTimer(this);
     connect(m_positionUpdateTimer, &QTimer::timeout, this, &MainWindow::updatePositionDisplay);
     m_positionUpdateTimer->start(100); // Update every 100ms (0.1 second)
-    m_prevX = globle_vars.current_x;
-    m_prevY = globle_vars.current_y;
-    m_prevZ = globle_vars.current_z;
+    m_prevX = globle_vars.current_x.load();
+    m_prevY = globle_vars.current_y.load();
+    m_prevZ = globle_vars.current_z.load();
 
     setupTransformationMatrix();
 
@@ -397,9 +397,9 @@ void MainWindow::setMovementControlsEnabled(bool enabled) {
 QGroupBox* MainWindow::setupPositionUI() {
     // Left column widgets
     QLabel* currentLabel = new QLabel("Current Position");
-    m_xLabel = new QLabel(QString("X: %1").arg(globle_vars.current_x));
-    m_yLabel = new QLabel(QString("Y: %1").arg(globle_vars.current_y));
-    m_zLabel = new QLabel(QString("Z: %1").arg(globle_vars.current_z));
+    m_xLabel = new QLabel(QString("X: %1").arg(globle_vars.current_x.load()));
+    m_yLabel = new QLabel(QString("Y: %1").arg(globle_vars.current_y.load()));
+    m_zLabel = new QLabel(QString("Z: %1").arg(globle_vars.current_z.load()));
     QLabel* newPosLabel = new QLabel("New Position 1");
     m_x1 = new QLineEdit("59852");
     m_y1 = new QLineEdit("162080");
@@ -603,19 +603,19 @@ void MainWindow::updateFrame(const QImage& img, int camType) {
 
 void MainWindow::updatePositionDisplay() {
     // Check if values have changed to avoid unnecessary updates
-    if (m_prevX != globle_vars.current_x ||
-        m_prevY != globle_vars.current_y ||
-        m_prevZ != globle_vars.current_z) {
+    if (m_prevX != globle_vars.current_x.load() ||
+        m_prevY != globle_vars.current_y.load() ||
+        m_prevZ != globle_vars.current_z.load()) {
 
         // Update the labels with new values (2 decimal places)
-        m_xLabel->setText(QString("X: %1").arg(globle_vars.current_x));
-        m_yLabel->setText(QString("Y: %1").arg(globle_vars.current_y));
-        m_zLabel->setText(QString("Z: %1").arg(globle_vars.current_z));
+        m_xLabel->setText(QString("X: %1").arg(globle_vars.current_x.load()));
+        m_yLabel->setText(QString("Y: %1").arg(globle_vars.current_y.load()));
+        m_zLabel->setText(QString("Z: %1").arg(globle_vars.current_z.load()));
 
         // Update previous values
-        m_prevX = globle_vars.current_x;
-        m_prevY = globle_vars.current_y;
-        m_prevZ = globle_vars.current_z;
+        m_prevX = globle_vars.current_x.load();
+        m_prevY = globle_vars.current_y.load();
+        m_prevZ = globle_vars.current_z.load();
     }
 }
 

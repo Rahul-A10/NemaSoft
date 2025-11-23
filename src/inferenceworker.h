@@ -44,7 +44,8 @@ public:
 
 	// common processing
     std::vector<cv::Rect> shortestPath(std::vector<cv::Rect>& centroids);
-    std::vector<cv::Rect> drawBoxes(std::vector<cv::Rect>& boxes, std::vector<int>& classIds,
+    // Draw boxes into a provided image instead of always drawing into member frame
+    std::vector<cv::Rect> drawBoxes(cv::Mat& frameToDraw, std::vector<cv::Rect>& boxes, std::vector<int>& classIds,
         std::vector<float>& confidences, std::vector<int>& indices);
     
 public slots:

@@ -66,50 +66,70 @@ void XYZStage::worker() {
     log("Worker thread running", "INFO");
 
     while (true) {
-        MoveCommand currentCommand;
+        try {
+            MoveCommand currentCommand;
 
-        {
-            std::unique_lock<std::mutex> lock(m_queueMutex);
-
-            // Wait for command or stop signal
-            m_condition.wait(lock, [this] {
-                return !m_commandQueue.empty() || m_stopWorker;
-                });
-
-            // Exit if stopping and queue is empty
-            if (m_stopWorker && m_commandQueue.empty()) {
-                log("Worker thread exiting", "INFO");
-                return;
-            }
-
-            // Get command from queue
-            currentCommand = m_commandQueue.front();
-            m_commandQueue.pop();
-
-            log(QString("Worker dequeued command: dx=%1, dy=%2, dz=%3")
-                .arg(currentCommand.dx)
-                .arg(currentCommand.dy)
-                .arg(currentCommand.dz), "INFO");
-        }
-
-        // Execute the move (outside the lock)
-        char direction = (currentCommand.dx >= 0 && currentCommand.dy >= 0 && currentCommand.dz >= 0) ? 'P' : 'D';
-
-        _move(std::abs(currentCommand.dx),
-            std::abs(currentCommand.dy),
-            std::abs(currentCommand.dz),
-            currentCommand.vx,
-            currentCommand.vy,
-            currentCommand.vz,
-            direction);
-
-        // Notify if blocking call is waiting
-        if (m_isWaitingForMoveCompletion.load()) {
             {
-                std::lock_guard<std::mutex> lock(m_syncMutex);
-                m_isWaitingForMoveCompletion = false;
+                std::unique_lock<std::mutex> lock(m_queueMutex);
+
+                // Wait for command or stop signal
+                m_condition.wait(lock, [this] {
+                    return !m_commandQueue.empty() || m_stopWorker;
+                    });
+
+                // Exit if stopping and queue is empty
+                if (m_stopWorker && m_commandQueue.empty()) {
+                    log("Worker thread exiting", "INFO");
+                    return;
+                }
+
+                // Get command from queue
+                currentCommand = m_commandQueue.front();
+                m_commandQueue.pop();
+
+                log(QString("Worker dequeued command: dx=%1, dy=%2, dz=%3")
+                    .arg(currentCommand.dx)
+                    .arg(currentCommand.dy)
+                    .arg(currentCommand.dz), "INFO");
             }
-            m_syncCondition.notify_one();
+
+            // Execute the move (outside the lock)
+            char direction = (currentCommand.dx >= 0 && currentCommand.dy >= 0 && currentCommand.dz >= 0) ? 'P' : 'D';
+
+            // Wrap low level move in try/catch so worker thread doesn't terminate on exceptions
+            try {
+                _move(std::abs(currentCommand.dx),
+                    std::abs(currentCommand.dy),
+                    std::abs(currentCommand.dz),
+                    currentCommand.vx,
+                    currentCommand.vy,
+                    currentCommand.vz,
+                    direction);
+            } catch (const std::exception& e) {
+                log(QString("Exception in _move(): %1").arg(e.what()), "CRITICAL");
+            } catch (...) {
+                log("Unknown exception in _move()", "CRITICAL");
+            }
+
+            // Notify if blocking call is waiting
+            if (m_isWaitingForMoveCompletion.load()) {
+                {
+                    std::lock_guard<std::mutex> lock(m_syncMutex);
+                    m_isWaitingForMoveCompletion = false;
+                }
+                m_syncCondition.notify_one();
+            }
+        }
+        catch (const std::exception& e) {
+            log(QString("Worker thread caught exception: %1").arg(e.what()), "CRITICAL");
+            // small sleep to avoid busy-loop in case of persistent failure
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
+        catch (...) {
+            log("Worker thread caught unknown exception", "CRITICAL");
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
         }
     }
 }
@@ -138,12 +158,19 @@ void XYZStage::move_and_wait(double dx, double dy, double dz, double velocity_x,
     // Queue the command
     move(dx, dy, dz, velocity_x, velocity_y, velocity_z);
 
-    // Wait for completion
+    // Wait for completion with timeout to avoid indefinite hangs
     log("move_and_wait: Waiting for completion...", "INFO");
-    m_syncCondition.wait(lock, [this] {
+    bool completed = m_syncCondition.wait_for(lock, std::chrono::seconds(20), [this] {
         return !m_isWaitingForMoveCompletion.load();
-        });
-    log("move_and_wait: Move complete", "INFO");
+    });
+
+    if (!completed) {
+        log("move_and_wait: Timeout waiting for move completion", "WARNING");
+        // Clear the waiting flag to avoid deadlocks
+        m_isWaitingForMoveCompletion = false;
+    } else {
+        log("move_and_wait: Move complete", "INFO");
+    }
 }
 
 // Home command
@@ -160,14 +187,33 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
 
         // Update simulated position
         int sign = (direction == 'D') ? -1 : 1;
-        globle_vars.current_x += (x * sign);
-        globle_vars.current_y += (y * sign);
-        globle_vars.current_z += (z * sign);
+        // atomic<double> may not support fetch_add on all STL implementations (MSVC), use CAS loop
+        {
+            double oldVal = globle_vars.current_x.load();
+            double newVal;
+            do {
+                newVal = oldVal + (x * sign);
+            } while (!globle_vars.current_x.compare_exchange_weak(oldVal, newVal));
+        }
+        {
+            double oldVal = globle_vars.current_y.load();
+            double newVal;
+            do {
+                newVal = oldVal + (y * sign);
+            } while (!globle_vars.current_y.compare_exchange_weak(oldVal, newVal));
+        }
+        {
+            double oldVal = globle_vars.current_z.load();
+            double newVal;
+            do {
+                newVal = oldVal + (z * sign);
+            } while (!globle_vars.current_z.compare_exchange_weak(oldVal, newVal));
+        }
 
         log(QString("Simulated position: X=%1, Y=%2, Z=%3")
-            .arg(globle_vars.current_x)
-            .arg(globle_vars.current_y)
-            .arg(globle_vars.current_z), "INFO");
+            .arg(globle_vars.current_x.load())
+            .arg(globle_vars.current_y.load())
+            .arg(globle_vars.current_z.load()), "INFO");
 
         // Simulate movement time
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -178,14 +224,19 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     int sign = (direction == 'D') ? -1 : 1;
 
     log(QString("Moving FROM: X=%1, Y=%2, Z=%3")
-        .arg(globle_vars.current_x)
-        .arg(globle_vars.current_y)
-        .arg(globle_vars.current_z), "INFO");
+        .arg(globle_vars.current_x.load())
+        .arg(globle_vars.current_y.load())
+        .arg(globle_vars.current_z.load()), "INFO");
+
+    // Read current position atomically into locals
+    double currentX = globle_vars.current_x.load();
+    double currentY = globle_vars.current_y.load();
+    double currentZ = globle_vars.current_z.load();
 
     // Calculate target position
-    int targetX = globle_vars.current_x + (x * sign);
-    int targetY = globle_vars.current_y + (y * sign);
-    int targetZ = globle_vars.current_z + (z * sign);
+    int targetX = static_cast<int>(currentX + (x * sign));
+    int targetY = static_cast<int>(currentY + (y * sign));
+    int targetZ = static_cast<int>(currentZ + (z * sign));
 
     // Check bounds
     if (targetX < globle_vars.min_x || targetY < globle_vars.min_y || targetZ < globle_vars.min_z) {
@@ -259,7 +310,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     log(QString("Command sent: %1").arg(QString::fromStdString(cmd).trimmed()), "INFO");
 
     // Calculate wait time
-    double sleep_time = 0.0;
+    double sleep_time = 3.0;
 
     if (vx_units > 1) {
         double time = std::abs(static_cast<double>(x_units) / vx_units);
@@ -318,10 +369,10 @@ XYZStage::Position XYZStage::_home() {
 
     log("Homing complete", "INFO");
 
-    // Reset position
-    globle_vars.current_x = 0;
-    globle_vars.current_y = 0;
-    globle_vars.current_z = 0;
+    // Reset position (store atomically)
+    globle_vars.current_x.store(0.0);
+    globle_vars.current_y.store(0.0);
+    globle_vars.current_z.store(0.0);
 
     position.x = 0;
     position.y = 0;
@@ -389,18 +440,18 @@ void XYZStage::parsePositionResponse(const std::string& response) {
     }
 
     if (positions.size() >= 3) {
-        globle_vars.current_x = positions[0] / scale.x;
-        globle_vars.current_y = positions[1] / scale.y;
-        globle_vars.current_z = positions[2] / scale.z;
+        globle_vars.current_x.store(static_cast<double>(positions[0]) / scale.x);
+        globle_vars.current_y.store(static_cast<double>(positions[1]) / scale.y);
+        globle_vars.current_z.store(static_cast<double>(positions[2]) / scale.z);
 
-        position.x = globle_vars.current_x;
-        position.y = globle_vars.current_y;
-        position.z = globle_vars.current_z;
+        position.x = globle_vars.current_x.load();
+        position.y = globle_vars.current_y.load();
+        position.z = globle_vars.current_z.load();
 
         log(QString("Position: X=%1, Y=%2, Z=%3")
-            .arg(globle_vars.current_x)
-            .arg(globle_vars.current_y)
-            .arg(globle_vars.current_z), "DEBUG");
+            .arg(globle_vars.current_x.load())
+            .arg(globle_vars.current_y.load())
+            .arg(globle_vars.current_z.load()), "DEBUG");
     }
 }
 
