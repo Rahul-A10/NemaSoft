@@ -72,15 +72,15 @@ void DetectionTraverser::process()
             Logger::warning(QString("Point %1 is out of bound. Skipping!").arg(i + 1));
             continue;  // Skip to next point
         }
+        m_xyzStage->move_and_wait(0, 0, -1000); // move down for safe movement
         // Calculate deltas from the *current actual position*
         double deltaX = targetPoint.x - globle_vars.current_x;
         double deltaY = targetPoint.y - globle_vars.current_y;
-        double zValue = m_mainWindow->m_z_injection->text().toDouble();
-        double deltaZ = 27000 - globle_vars.current_z; // Constant Z target
+        double deltaZ = globle_vars.z_injection_value - globle_vars.current_z; // Constant Z target
 
         Logger::info(QString("Point %1/%2: Moving...").arg(i + 1).arg(realCoordinates.size()));
         // Use the new BLOCKING move function
-		m_xyzStage->move_and_wait(0, 0, -1000); // Ensure we start from current position
+		
         m_xyzStage->move_and_wait(deltaX, 0, 0);
         m_xyzStage->move_and_wait(0, deltaY, 0);
         m_xyzStage->move_and_wait(0, 0, deltaZ);

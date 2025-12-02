@@ -404,7 +404,8 @@ QGroupBox* MainWindow::setupPositionUI() {
     m_x1 = new QLineEdit("59852");
     m_y1 = new QLineEdit("162080");
     m_z1 = new QLineEdit("100");
-    m_z_injection = new QLineEdit("16000");
+    m_z_injection = new QLineEdit(QString("%1").arg(globle_vars.z_injection_value));
+    globle_vars.z_injection_value = m_z_injection->text().toDouble();
     m_stepEdit = new QLineEdit("400");
 
     // Macro data dropdown
@@ -1690,6 +1691,7 @@ void MainWindow::onPredictMicroImg() {
 
 void MainWindow::onTraversalStarted() {
     Logger::info("UI received traversalStarted signal. Disabling controls.");
+    globle_vars.z_injection_value = m_z_injection->text().toDouble();
     setMovementControlsEnabled(false);
     m_goToPositionBtn->setEnabled(false);
     m_confirmAdjustmentBtn->setEnabled(false);
@@ -1705,6 +1707,7 @@ void MainWindow::onWaitingForUser() {
 }
 
 void MainWindow::onConfirmAdjustmentClicked() {
+    globle_vars.z_injection_value = m_z_injection->text().toDouble();
 
     Logger::info("User confirmed adjustment. Capturing images and proceeding.");
 

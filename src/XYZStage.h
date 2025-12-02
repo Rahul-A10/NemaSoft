@@ -19,6 +19,8 @@
 
 // Global variables structure
 struct GlobalVars {
+    std::mutex pos_mutex;
+    double z_injection_value = 16000;
     double current_x = 100.0;
     double current_y = 100.0;
     double current_z = 100.0;

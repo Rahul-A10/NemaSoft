@@ -160,6 +160,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
 
         // Update simulated position
         int sign = (direction == 'D') ? -1 : 1;
+        std::lock_guard<std::mutex> lock(globle_vars.pos_mutex);
         globle_vars.current_x += (x * sign);
         globle_vars.current_y += (y * sign);
         globle_vars.current_z += (z * sign);
@@ -263,18 +264,21 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
 
     if (vx_units > 1) {
         double time = std::abs(static_cast<double>(x_units) / vx_units);
-        if (time > sleep_time) sleep_time = time;
+        //if (time > sleep_time) sleep_time = time;
+		sleep_time = time + sleep_time;
     }
     if (vy_units > 1) {
         double time = std::abs(static_cast<double>(y_units) / vy_units);
-        if (time > sleep_time) sleep_time = time;
+        //if (time > sleep_time) sleep_time = time;
+        sleep_time = time + sleep_time;
     }
     if (vz_units > 1) {
         double time = std::abs(static_cast<double>(z_units) / vz_units);
-        if (time > sleep_time) sleep_time = time;
+        //if (time > sleep_time) sleep_time = time;
+        sleep_time = time + sleep_time;
     }
 
-    sleep_time += 0.1; // Buffer time
+    sleep_time += 1.0; // Buffer time
 
     log(QString("Waiting %1 seconds for movement...").arg(sleep_time, 0, 'f', 2), "INFO");
 
@@ -283,7 +287,6 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
 
     // Query new position
     getPosition();
-
     return position;
 }
 
@@ -389,6 +392,7 @@ void XYZStage::parsePositionResponse(const std::string& response) {
     }
 
     if (positions.size() >= 3) {
+        std::lock_guard<std::mutex> lock(globle_vars.pos_mutex);
         globle_vars.current_x = positions[0] / scale.x;
         globle_vars.current_y = positions[1] / scale.y;
         globle_vars.current_z = positions[2] / scale.z;
