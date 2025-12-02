@@ -12,6 +12,7 @@
 #include <QString>
 
 
+class MainWindow;
 class DetectionTraverser : public QObject
 {
     Q_OBJECT
@@ -39,6 +40,7 @@ private:
     }
     
     XYZStage* m_xyzStage;
+	MainWindow* m_mainWindow;
     std::vector<cv::Rect> m_macroImgPath;
     cv::Mat m_transformMatrix;
 

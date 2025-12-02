@@ -24,7 +24,7 @@
 #include <QDockWidget>
 #include <logger.h>
 #include "StageMapping.h"
-
+#include "DetectionTraverser.h"
 // or more specific includes:
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -404,6 +404,7 @@ QGroupBox* MainWindow::setupPositionUI() {
     m_x1 = new QLineEdit("59852");
     m_y1 = new QLineEdit("162080");
     m_z1 = new QLineEdit("100");
+    m_z_injection = new QLineEdit("16000");
     m_stepEdit = new QLineEdit("400");
 
     // Macro data dropdown
@@ -435,6 +436,8 @@ QGroupBox* MainWindow::setupPositionUI() {
     leftColumnLayout->addWidget(m_x1);
     leftColumnLayout->addWidget(m_y1);
     leftColumnLayout->addWidget(m_z1);
+	leftColumnLayout->addWidget(new QLabel("Z Injection:"));
+	leftColumnLayout->addWidget(m_z_injection);
     leftColumnLayout->addWidget(new QLabel("Step:"));
     leftColumnLayout->addWidget(m_stepEdit);
     leftColumnLayout->addStretch(); // Push everything to the top

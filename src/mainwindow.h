@@ -21,7 +21,7 @@
 #include "logdisplay.h"
 #include "PointMatcher.h"
 #include "StageMapping.h"
-
+#include "DetectionTraverser.h"
 struct cameraOp
 {
     QThread* thrd;
@@ -71,7 +71,7 @@ class MainWindow : public QMainWindow {
 public:
     MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
-
+    QLineEdit* m_z_injection;
     void resizeEvent(QResizeEvent* event);
 
     QGroupBox* setupMovementUI();
@@ -194,6 +194,7 @@ private:
     QLineEdit* m_x1;
     QLineEdit* m_y1;
     QLineEdit* m_z1;
+	
     QLineEdit* m_stepEdit;
     bool abort = false;
 	bool pause = false;
