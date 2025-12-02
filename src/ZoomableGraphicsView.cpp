@@ -35,6 +35,11 @@ void ZoomableGraphicsView::setZoomLimits(double min, double max)
 
 void ZoomableGraphicsView::wheelEvent(QWheelEvent* event)
 {
+    if (!scene()) {
+        event->ignore();
+        return;
+    }
+
     const double scaleFactor = 1.15;
     // Get the current scale from the transformation matrix
     const double currentScale = transform().m11();
@@ -56,6 +61,11 @@ void ZoomableGraphicsView::wheelEvent(QWheelEvent* event)
 
 void ZoomableGraphicsView::mousePressEvent(QMouseEvent* event)
 {
+    if (!scene()) {
+        event->ignore();
+        return;
+    }
+
     if (event->button() == Qt::RightButton) {
         setDragMode(QGraphicsView::ScrollHandDrag);
     }

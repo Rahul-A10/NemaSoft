@@ -403,7 +403,7 @@ QGroupBox* MainWindow::setupPositionUI() {
     QLabel* newPosLabel = new QLabel("New Position 1");
     m_x1 = new QLineEdit("59852");
     m_y1 = new QLineEdit("162080");
-    m_z1 = new QLineEdit("0");
+    m_z1 = new QLineEdit("100");
     m_stepEdit = new QLineEdit("400");
 
     // Macro data dropdown
@@ -527,6 +527,11 @@ void MainWindow::renderLatestFrame() {
 	QMutexLocker locker(&m_frameMutex);
 
 	m_uiFrameCount++;
+    if (m_microCam1Stopping.load(std::memory_order_acquire) ||
+        m_microCam2Stopping.load(std::memory_order_acquire)) {
+        return;  // Don't do anything during shutdown
+    }
+
     if (m_UITimer.elapsed() >= 1000) {
         QString fpsText = "UI FPS - " + QString::number(m_uiFrameCount);
         m_uiFPS->setText(fpsText);
@@ -669,57 +674,68 @@ void MainWindow::onStartArducam() {
 
 void MainWindow::onStartDuocam() {
     if (m_microCam1Op.thrd || m_microCam2Op.thrd) {
-        //log("stopping duo cam", "INFO");
+        log("Stopping Duo Camera", "INFO");
 
-        //// Signal cameras to stop (should set internal flags)
-        //m_microCam1Op.toggleCamera();
-        //m_microCam2Op.toggleCamera();
+        // ===============================
+        // Stop MicroCam1
+        // ===============================
+        if (m_microCam1Op.camWorker) {
+            m_microCam1Op.camWorker->stop();   // Or toggleCamera() if that's what you use
+        }
+        if (m_microCam1Op.thrd) {
+            m_microCam1Op.thrd->quit();
+            m_microCam1Op.thrd->wait();
 
-        //// Wait for threads to finish with timeout to prevent indefinite freeze
-        //if (m_microCam1Op.thrd) {
-        //    if (!m_microCam1Op.thrd->wait(3000)) {  // 3 second timeout
-        //        log("Camera 1 thread did not stop gracefully, forcing termination", "WARNING");
-        //        m_microCam1Op.thrd->terminate();
-        //        m_microCam1Op.thrd->wait();
-        //    }
-        //    m_microCam1Op.thrd = nullptr;  // Clear thread pointer
-        //}
+            delete m_microCam1Op.thrd;
+            m_microCam1Op.thrd = nullptr;
+            m_microCam1Op.camWorker = nullptr;
+        }
 
-        //if (m_microCam2Op.thrd) {
-        //    if (!m_microCam2Op.thrd->wait(3000)) {
-        //        log("Camera 2 thread did not stop gracefully, forcing termination", "WARNING");
-        //        m_microCam2Op.thrd->terminate();
-        //        m_microCam2Op.thrd->wait();
-        //    }
-        //    m_microCam2Op.thrd = nullptr;  // Clear thread pointer
-        //}
+        m_microCam1View->resetTransform();
+        m_microCam1Op.cameraBtn->setText("Start Duo Camera");
+        m_microCam1Op.FPSTimer.invalidate();
+        m_microCam1FPS->setText("MicroCam1 FPS - 0");
 
-        //// Clean up camera 1
-        //{
-        //    QMutexLocker locker(&m_frameMutex);
-        //    m_latestMicroCam1Image = QImage();
-        //}
-        //m_microCam1View->resetTransform();
-        //m_currentMicroImg1.release();
-        //m_microAnnotations1.clear();
-        //ImageDisplay(MICROCAM1);
+        /*{
+            QMutexLocker locker(&m_frameMutex);
+            m_latestMicroCam1Image = QImage();
+        }*/
 
-        //// Clean up camera 2
-        //{
-        //    QMutexLocker locker(&m_frameMutex);
-        //    m_latestMicroCam2Image = QImage();
-        //}
-        //m_microCam2View->resetTransform();
-        //m_currentMicroImg2.release();
-        //m_microAnnotations2.clear();
-        //ImageDisplay(MICROCAM2);
 
-        //// Update button text
-        //m_microCam1Op.cameraBtn->setText("Start Duocam");
+        // ===============================
+        // Stop MicroCam2
+        // ===============================
+        if (m_microCam2Op.camWorker) {
+            m_microCam2Op.camWorker->stop();
+        }
+        if (m_microCam2Op.thrd) {
+            m_microCam2Op.thrd->quit();
+            m_microCam2Op.thrd->wait();
 
-        //log("duo cam stopped", "INFO");
+            delete m_microCam2Op.thrd;
+            m_microCam2Op.thrd = nullptr;
+            m_microCam2Op.camWorker = nullptr;
+        }
+
+        m_microCam2View->resetTransform();
+        m_microCam2Op.FPSTimer.invalidate();
+        m_microCam2FPS->setText("MicroCam2 FPS - 0");
+
+        /*{
+            QMutexLocker locker(&m_frameMutex);
+            m_latestMicroCam2Image = QImage();
+        }*/
+
+        // Clear all MicroCam annotations
+        clearMicroAnnotations();
+
+        // Force UI refresh
+        /*ImageDisplay(MICROCAM1);
+        ImageDisplay(MICROCAM2);*/
+
         return;
     }
+    
 
     m_microCam1Op.thrd = new QThread(this);
     m_microCam1Op.camWorker = new CameraWorker(1, 1, 2720, 1536, 15);
@@ -855,15 +871,15 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(1981 , 795),   // Replace with actual image coordinates // i
-        cv::Point2f(2088, 1001),   // from your calibration process// center
-        cv::Point2f(1804, 760)//0.1
+        cv::Point2f(1962 , 988),   // Replace with actual image coordinates // i
+        cv::Point2f(1866, 1204),   // from your calibration process// center
+        cv::Point2f(1875, 825)//0.1
     };
 
     std::vector<cv::Point2f> realPoints = {
-        cv::Point2f(60772, 27545), // Replace with actual real world coordinates
-        cv::Point2f(57409, 34181), // corresponding to the image points above
-        cv::Point2f(58272, 22318)
+        cv::Point2f(61000, 27556), // Replace with actual real world coordinates
+        cv::Point2f(53545, 28863), // corresponding to the image points above
+        cv::Point2f(63352, 22170)
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
@@ -963,54 +979,85 @@ void MainWindow::onPredictMacroImg() {
 //----------------------------------------------DATA CAPTURE------------------------------------------------------------
 // Add this new slot to MainWindow
 void MainWindow::onMicroCam1FrameReady(const QImage& img, int camType) {
+    
+    // Check shutdown flag FIRST
+    if (m_microCam1Stopping.load(std::memory_order_acquire)) {
+        return;
+    }
+
+    // Double-check worker still exists
+    if (!m_microCam1Op.camWorker || !m_microCam1Op.thrd) {
+        return;
+    }
     if (camType != MICROCAM1) {
         updateFrame(img, camType);
         return;
     }
 
-    cv::Mat frame = m_microCam1Op.camWorker->getCurrentFrame();
 
-    if (!frame.empty()) {
-        // Draw annotations if any exist
-        if (!m_microAnnotations1.isEmpty()) {
-            drawAnnotations(frame, m_microAnnotations1, m_microComboBox);
+    try {
+        cv::Mat frame = m_microCam1Op.camWorker->getCurrentFrame();
+
+        if (!frame.empty()) {
+            // Draw annotations if any exist
+            if (!m_microAnnotations1.isEmpty()) {
+                drawAnnotations(frame, m_microAnnotations1, m_microComboBox);
+            }
+
+            // If servoing, draw center crosshair and status
+
+            cv::Mat rgbImg;
+            cv::cvtColor(frame, rgbImg, cv::COLOR_BGR2RGB);
+            QImage annotatedImg(rgbImg.data, rgbImg.cols, rgbImg.rows,
+                rgbImg.step, QImage::Format_RGB888);
+            updateFrame(annotatedImg.copy(), MICROCAM1);
         }
-
-        // If servoing, draw center crosshair and status
-
-        cv::Mat rgbImg;
-        cv::cvtColor(frame, rgbImg, cv::COLOR_BGR2RGB);
-        QImage annotatedImg(rgbImg.data, rgbImg.cols, rgbImg.rows,
-            rgbImg.step, QImage::Format_RGB888);
-        updateFrame(annotatedImg.copy(), MICROCAM1);
+        else {
+            updateFrame(img, MICROCAM1);
+        }
     }
-    else {
-        updateFrame(img, MICROCAM1);
+    catch (...) {
+        return;
     }
 }
 
 void MainWindow::onMicroCam2FrameReady(const QImage& img, int camType) {
+    if (m_microCam2Stopping.load(std::memory_order_acquire)) {
+        return;
+    }
+
+    // Double-check worker still exists
+    if (!m_microCam2Op.camWorker || !m_microCam2Op.thrd) {
+        return;
+    }
+
     if (camType != MICROCAM2) {
         updateFrame(img, camType);
         return;
     }
+    
 
-    cv::Mat frame = m_microCam2Op.camWorker->getCurrentFrame();
+    try {
+        cv::Mat frame = m_microCam2Op.camWorker->getCurrentFrame();
 
-    if (!frame.empty()) {
-        // Draw annotations if any exist
-        if (!m_microAnnotations2.isEmpty()) {
-            drawAnnotations(frame, m_microAnnotations2, m_microComboBox);
+        if (!frame.empty()) {
+            // Draw annotations if any exist
+            if (!m_microAnnotations2.isEmpty()) {
+                drawAnnotations(frame, m_microAnnotations2, m_microComboBox);
+            }
+
+            cv::Mat rgbImg;
+            cv::cvtColor(frame, rgbImg, cv::COLOR_BGR2RGB);
+            QImage annotatedImg(rgbImg.data, rgbImg.cols, rgbImg.rows,
+                rgbImg.step, QImage::Format_RGB888);
+            updateFrame(annotatedImg.copy(), MICROCAM2);
         }
-
-        cv::Mat rgbImg;
-        cv::cvtColor(frame, rgbImg, cv::COLOR_BGR2RGB);
-        QImage annotatedImg(rgbImg.data, rgbImg.cols, rgbImg.rows,
-            rgbImg.step, QImage::Format_RGB888);
-        updateFrame(annotatedImg.copy(), MICROCAM2);
+        else {
+            updateFrame(img, MICROCAM2);
+        }
     }
-    else {
-        updateFrame(img, MICROCAM2);
+    catch (...) {
+        return;
     }
 }
 
@@ -1712,8 +1759,8 @@ void MainWindow::onFocusCam1() {
         double v = ann.center.y() * imageHeight;
 
         // Use center of image as reference (uc, vc)
-        double uc = imageWidth / 2.0;
-        double vc = imageHeight / 2.0;
+        double uc = 1715;//imageWidth / 2.0;
+        double vc = 1095;//imageHeight / 2.0;
 
         Eigen::Vector2d delta1 = mapper->computeStageDelta(CameraID::FRAME1, u, v, uc, vc);
         // Use delta2 as needed
@@ -1748,8 +1795,8 @@ void MainWindow::onFocusCam2() {
         double v = ann.center.y() * imageHeight;
 
         // Use center of image as reference (uc, vc)
-        double uc = imageWidth / 2.0;
-        double vc = imageHeight / 2.0;
+        double uc = 1030;//imageWidth / 2.0;
+        double vc = 1152; //imageHeight / 2.0;
 
         Eigen::Vector2d delta2 = mapper->computeStageDelta(CameraID::FRAME2, u, v, uc, vc);
         // Use delta2 as needed

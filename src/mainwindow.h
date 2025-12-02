@@ -154,6 +154,8 @@ public:
 private:
     StageMapping* mapper = nullptr;
 	StageMapping* mapper2 = nullptr;
+    std::atomic<bool> m_microCam1Stopping{ false };
+    std::atomic<bool> m_microCam2Stopping{ false };
 
     std::vector<PointMapping> frame1_points = {
         {0, 0, 62931, 26806},

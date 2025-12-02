@@ -274,7 +274,7 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
         if (time > sleep_time) sleep_time = time;
     }
 
-    sleep_time += 0.5; // Buffer time
+    sleep_time += 0.1; // Buffer time
 
     log(QString("Waiting %1 seconds for movement...").arg(sleep_time, 0, 'f', 2), "INFO");
 
