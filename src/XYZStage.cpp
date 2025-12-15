@@ -231,12 +231,13 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     }
     else if (x_units == 0) {
         char buffer[256];
+        
         sprintf_s(buffer, "/1V,%d,%d%c,%d,%dR\r\n", vy_units, vz_units, direction, y_units, z_units);
         cmd = buffer;
     }
     else if (y_units == 0) {
         char buffer[256];
-        sprintf_s(buffer, "/1V%d,,%d%c%d,,%dR\r\n", vx_units, vz_units, direction, x_units, z_units);
+        sprintf_s(buffer, "/1V%d,,%d%c-%d,,%dR\r\n", vx_units/2, vz_units, direction, x_units, z_units);
         cmd = buffer;
     }
     else if (z_units == 0) {
@@ -283,7 +284,15 @@ XYZStage::Position XYZStage::_move(double x, double y, double z, double vx, doub
     log(QString("Waiting %1 seconds for movement...").arg(sleep_time, 0, 'f', 2), "INFO");
 
     // Wait for movement
-    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(sleep_time * 1000)));
+    if (sleep_time > 4) {
+		log("Movement in progress...", "INFO");
+		std::this_thread::sleep_for(std::chrono::seconds(static_cast<int>(4)));
+    }
+    else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(sleep_time * 1000)));
+
+    }
+    
 
     // Query new position
     getPosition();

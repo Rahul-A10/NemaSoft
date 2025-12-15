@@ -1941,7 +1941,7 @@ void MainWindow::onZDownFastClicked() {
 void MainWindow::onSlant1Clicked() {
     log("Move ↖", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
-    m_xyzStage.move(-10.0 * stepValue, -10.0 * stepValue, 0.0);
+    m_xyzStage.move(stepValue,  0.0, stepValue );
 }
 void MainWindow::onSlant2Clicked() {
     log("Move ↗", "INFO");
@@ -1952,7 +1952,7 @@ void MainWindow::onSlant2Clicked() {
 void MainWindow::onSlant3Clicked() {
     log("Move ↘", "INFO");
     double stepValue = m_stepEdit->text().toDouble();
-    m_xyzStage.move(10.0 * stepValue, 10.0 * stepValue, 0.0);
+    m_xyzStage.move(-stepValue, 0.0, -stepValue);
 }
 void MainWindow::onSlant4Clicked() {
     log("Move ↙", "INFO");
