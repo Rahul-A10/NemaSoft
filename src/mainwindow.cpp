@@ -75,6 +75,10 @@ MainWindow::MainWindow(QWidget* parent)
 
 
 
+    // Initialize crosshair positions using the constants
+    m_arducamCrosshairPos = QPointF(ARDUCAM_CROSSHAIR_X, ARDUCAM_CROSSHAIR_Y);
+    m_microCam1CrosshairPos = QPointF(MICROCAM1_CROSSHAIR_X, MICROCAM1_CROSSHAIR_Y);
+    m_microCam2CrosshairPos = QPointF(MICROCAM2_CROSSHAIR_X, MICROCAM2_CROSSHAIR_Y);
 
 
 
@@ -97,6 +101,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_arducamView->setGeometry(mainWidth * 0.5, 0, mainWidth * 0.5, mainHeight * 0.5);
     m_arducamView->setMaximumWidth(mainWidth * 0.5);
     m_arducamView->setMaximumHeight(mainHeight * 0.5);
+
 
     m_arducamScene = new QGraphicsScene(this);
     m_arducamPixmapItem = new QGraphicsPixmapItem();
@@ -528,12 +533,12 @@ cv::Mat MainWindow::calculateTransformationMatrix(const std::vector<cv::Point2f>
 }
 
 void MainWindow::renderLatestFrame() {
-	QMutexLocker locker(&m_frameMutex);
+    QMutexLocker locker(&m_frameMutex);
 
-	m_uiFrameCount++;
+    m_uiFrameCount++;
     if (m_microCam1Stopping.load(std::memory_order_acquire) ||
         m_microCam2Stopping.load(std::memory_order_acquire)) {
-        return;  // Don't do anything during shutdown
+        return;
     }
 
     if (m_UITimer.elapsed() >= 1000) {
@@ -543,21 +548,36 @@ void MainWindow::renderLatestFrame() {
         m_UITimer.restart();
     }
 
+    // Arducam with crosshair at center
     if (!m_latestArducamImage.isNull()) {
-        m_arducamPixmapItem->setPixmap(QPixmap::fromImage(m_latestArducamImage));
-    } else {
+        QImage displayImage = drawCrosshairOnImage(m_latestArducamImage,
+            m_arducamCrosshairPos,
+            Qt::white, 0, 10);  // size parameter ignored now
+        m_arducamPixmapItem->setPixmap(QPixmap::fromImage(displayImage));
+    }
+    else {
         m_arducamPixmapItem->setPixmap(QPixmap());
-	}
+    }
 
+    // MicroCam1 with custom crosshair
     if (!m_latestMicroCam1Image.isNull()) {
-        m_microCam1PixmapItem->setPixmap(QPixmap::fromImage(m_latestMicroCam1Image));
-    } else {
+        QImage displayImage = drawCrosshairOnImage(m_latestMicroCam1Image,
+            m_microCam1CrosshairPos,
+            Qt::white, 0, 5);
+        m_microCam1PixmapItem->setPixmap(QPixmap::fromImage(displayImage));
+    }
+    else {
         m_microCam1PixmapItem->setPixmap(QPixmap());
     }
 
+    // MicroCam2 with custom crosshair
     if (!m_latestMicroCam2Image.isNull()) {
-        m_microCam2PixmapItem->setPixmap(QPixmap::fromImage(m_latestMicroCam2Image));
-    } else {
+        QImage displayImage = drawCrosshairOnImage(m_latestMicroCam2Image,
+            m_microCam2CrosshairPos,
+            Qt::white, 0, 5);
+        m_microCam2PixmapItem->setPixmap(QPixmap::fromImage(displayImage));
+    }
+    else {
         m_microCam2PixmapItem->setPixmap(QPixmap());
     }
 }
@@ -660,7 +680,7 @@ void MainWindow::onStartArducam() {
     int camIndex = get_camDebug_flag() ? IMG : WEBCAM; // WEBCAM needs to be replaced with correct slot value
 
 
-	m_arducamOp.camWorker = new CameraWorker(0, 0, 3840, 2160, 10);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
+	m_arducamOp.camWorker = new CameraWorker(ARDUCAM_ID, 0, ARDUCAM_WIDTH, ARDUCAM_HEIGHT, ARDUCAM_FPS);// camIndex is 0 for arducam, 1 for microcam1 and 2 for microcam2
     m_arducamOp.camWorker->moveToThread(m_arducamOp.thrd);
 
 	m_arducamView->resetTransform();
@@ -742,7 +762,7 @@ void MainWindow::onStartDuocam() {
     
 
     m_microCam1Op.thrd = new QThread(this);
-    m_microCam1Op.camWorker = new CameraWorker(1, 1, 2720, 1536, 15);
+    m_microCam1Op.camWorker = new CameraWorker(MICROCAM1_ID, 1, MICROCAM_WIDTH, MICROCAM_HEIGHT, MICROCAM_FPS);
     m_microCam1Op.camWorker->moveToThread(m_microCam1Op.thrd);
 
     m_microCam1View->scale((float)m_microCam1View->width() / m_microCam1Op.camWorker->getFrameWidth(),
@@ -761,7 +781,7 @@ void MainWindow::onStartDuocam() {
 
     // MicroCam2
     m_microCam2Op.thrd = new QThread(this);
-    m_microCam2Op.camWorker = new CameraWorker(2, 2, 2720, 1536, 15);
+    m_microCam2Op.camWorker = new CameraWorker(MICROCAM2_ID, 2, MICROCAM_WIDTH, MICROCAM_HEIGHT, MICROCAM_FPS);
     m_microCam2Op.camWorker->moveToThread(m_microCam2Op.thrd);
 
     m_microCam2View->scale((float)m_microCam2View->width() / m_microCam2Op.camWorker->getFrameWidth(),
@@ -875,15 +895,15 @@ void MainWindow::inferenceResult(const cv::Mat& frame, const std::vector<cv::Rec
 void MainWindow::setupTransformationMatrix() {
     // Example calibration points - replace with your actual calibration data
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(1962 , 988),   // Replace with actual image coordinates // i
-        cv::Point2f(1866, 1204),   // from your calibration process// center
-        cv::Point2f(1875, 825)//0.1
+        cv::Point2f(1914 , 1198),   // Replace with actual image coordinates // i
+        cv::Point2f(1937, 1024),   // from your calibration process// center
+        cv::Point2f(2130, 914)//0.1
     };
 
     std::vector<cv::Point2f> realPoints = {
-        cv::Point2f(61000, 27556), // Replace with actual real world coordinates
-        cv::Point2f(53545, 28863), // corresponding to the image points above
-        cv::Point2f(63352, 22170)
+        cv::Point2f(58397, 28443), // Replace with actual real world coordinates
+        cv::Point2f(63681, 26113), // corresponding to the image points above
+        cv::Point2f(70181, 29909)
     };
 
     m_transformMatrix = calculateTransformationMatrix(imagePoints, realPoints);
@@ -1128,6 +1148,90 @@ void MainWindow::ImageDisplay(cameraType cam) {
         return;
     }
 }
+
+
+QImage MainWindow::drawCrosshairOnImage(const QImage& img, const QPointF& normalizedPos,
+    const QColor& color, int size, int thickness) {
+    if (img.isNull()) {
+        return QImage();
+    }
+
+    // Create a copy so we don't modify the original
+    QImage result = img.copy();
+
+    QPainter painter(&result);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    // Create semi-transparent white color (alpha = 128 for 50% transparency)
+    QColor semiTransparentWhite(255, 255, 255, 128);
+
+    QPen pen(semiTransparentWhite);
+    pen.setWidth(thickness);
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+
+    // Convert normalized position to pixel coordinates
+    int centerX = static_cast<int>(normalizedPos.x() * result.width());
+    int centerY = static_cast<int>(normalizedPos.y() * result.height());
+
+    int width = result.width();
+    int height = result.height();
+
+    // Draw full horizontal line
+    painter.drawLine(0, centerY, width, centerY);
+
+    // Draw full vertical line
+    painter.drawLine(centerX, 0, centerX, height);
+
+    // Draw large circle with radius = 20% of image width
+    int circleRadius = static_cast<int>(width * 0.2);
+    painter.drawEllipse(QPoint(centerX, centerY), circleRadius, circleRadius);
+
+    // Setup for scale markings
+    int tickLength = 10;  // Length of tick marks
+    QFont font = painter.font();
+    font.setPointSize(20);  // Small font for scale numbers
+    painter.setFont(font);
+
+    // Draw horizontal scale (0 to 1 with 0.1 increments)
+    for (int i = 0; i <= 10; ++i) {
+        float normalizedValue = i * 0.1f;
+        int x = static_cast<int>(normalizedValue * width);
+
+        // Draw tick mark
+        painter.drawLine(x, centerY - tickLength, x, centerY + tickLength);
+
+        // Draw label (skip center to avoid clutter)
+        if (i != static_cast<int>(normalizedPos.x() * 10)) {
+            QString label = QString::number(normalizedValue, 'f', 1);
+            int textY = (centerY < height / 2) ? centerY + tickLength + 15 : centerY - tickLength - 5;
+            painter.drawText(x - 10, textY, label);
+        }
+    }
+
+    // Draw vertical scale (0 to 1 with 0.1 increments)
+    for (int i = 0; i <= 10; ++i) {
+        float normalizedValue = i * 0.1f;
+        int y = static_cast<int>(normalizedValue * height);
+
+        // Draw tick mark
+        painter.drawLine(centerX - tickLength, y, centerX + tickLength, y);
+
+        // Draw label (skip center to avoid clutter)
+        if (i != static_cast<int>(normalizedPos.y() * 10)) {
+            QString label = QString::number(normalizedValue, 'f', 1);
+            int textX = (centerX < width / 2) ? centerX + tickLength + 5 : centerX - tickLength - 30;
+            painter.drawText(textX, y + 5, label);
+        }
+    }
+
+    painter.end();
+
+    return result;
+}
+
+
+
 void MainWindow::drawAnnotations(cv::Mat& img, const QVector<YoloAnnotation>& annotations, QComboBox* combobox) {
     int imageWidth = img.cols;
     int imageHeight = img.rows;
@@ -1765,15 +1869,15 @@ void MainWindow::onFocusCam1() {
         double v = ann.center.y() * imageHeight;
 
         // Use center of image as reference (uc, vc)
-        double uc = 1715;//imageWidth / 2.0;
-        double vc = 1095;//imageHeight / 2.0;
+		double uc = MICROCAM1_CROSSHAIR_X * MICROCAM_WIDTH;//imageWidth / 2.0; or crosshair center
+		double vc = MICROCAM1_CROSSHAIR_Y * MICROCAM_HEIGHT;//imageHeight / 2.0; or crosshair center
 
         Eigen::Vector2d delta1 = mapper->computeStageDelta(CameraID::FRAME1, u, v, uc, vc);
         // Use delta2 as needed
-        //delta1 = -delta1;
-        m_xyzStage.move(delta1.y(), 0, 0);
-		m_xyzStage.move(0, -delta1.x(), 0);// invert x and y for stage movement as camera is rotated 90 degrees
-        log(QString("Computed stage movement is x= %1, y= %2").arg(delta1.x()).arg(delta1.y()), "INFO");
+        delta1 = -delta1;
+        m_xyzStage.move(delta1.x(), 0, 0);
+		m_xyzStage.move(0, delta1.y(), 0);// invert x and y for stage movement as camera is rotated 90 degrees
+        log(QString("Computed stage movement is x= %1, y= %2").arg(delta1.x()).arg(-delta1.y()), "INFO");
     }
     else {
 		log("No annotations found for MicroCam1. Cannot focus.", "WARNING");
@@ -1801,12 +1905,12 @@ void MainWindow::onFocusCam2() {
         double v = ann.center.y() * imageHeight;
 
         // Use center of image as reference (uc, vc)
-        double uc = 1030;//imageWidth / 2.0;
-        double vc = 1152; //imageHeight / 2.0;
+		double uc = MICROCAM2_CROSSHAIR_X * MICROCAM_WIDTH;;//imageWidth / 2.0; or crosshair center
+		double vc = MICROCAM2_CROSSHAIR_Y * MICROCAM_HEIGHT; //imageHeight / 2.0; or crosshair center
 
         Eigen::Vector2d delta2 = mapper->computeStageDelta(CameraID::FRAME2, u, v, uc, vc);
         // Use delta2 as needed
-        delta2 = -delta2;
+		delta2 = -delta2;//invert for stage movement
         log(QString("Computed stage movement is x= %1, y= %2").arg(delta2.x()).arg(delta2.y()), "INFO");
 
         m_xyzStage.move(delta2.x(), 0, 0);

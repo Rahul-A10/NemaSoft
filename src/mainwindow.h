@@ -152,24 +152,56 @@ public:
     
 
 private:
+    // Camera configuration constants
+    static constexpr int ARDUCAM_ID = 0;// replace id with IMG to desplay static image
+    static constexpr int MICROCAM1_ID = 2;
+    static constexpr int MICROCAM2_ID = 1;
+
+
+    static constexpr int ARDUCAM_WIDTH = 3840;
+    static constexpr int ARDUCAM_HEIGHT = 2160;
+    static constexpr int ARDUCAM_FPS = 10;
+
+    static constexpr int MICROCAM_WIDTH = 2720;
+    static constexpr int MICROCAM_HEIGHT = 1536;
+    static constexpr int MICROCAM_FPS = 8;
+    // Crosshair positions (normalized 0-1 coordinates)
+    static constexpr double ARDUCAM_CROSSHAIR_X = 0.5;
+    static constexpr double ARDUCAM_CROSSHAIR_Y = 0.5;
+
+    static constexpr double MICROCAM1_CROSSHAIR_X = 0.36;
+    static constexpr double MICROCAM1_CROSSHAIR_Y = 0.66;
+
+    static constexpr double MICROCAM2_CROSSHAIR_X = 0.48;
+    static constexpr double MICROCAM2_CROSSHAIR_Y = 0.75;
+
+    QPointF m_arducamCrosshairPos;      // Center by default
+    QPointF m_microCam1CrosshairPos;    // Custom position
+    QPointF m_microCam2CrosshairPos;    // Custom position
+
+    // Helper function
+    QImage drawCrosshairOnImage(const QImage& img, const QPointF& normalizedPos,
+        const QColor& color = Qt::green, int size = 20, int thickness = 2);
+
+
     StageMapping* mapper = nullptr;
 	StageMapping* mapper2 = nullptr;
     std::atomic<bool> m_microCam1Stopping{ false };
     std::atomic<bool> m_microCam2Stopping{ false };
 
     std::vector<PointMapping> frame1_points = {
-        {0, 0, 62931, 26806},
-        {2720, 0, 60159, 29443},
-        {2720, 1536, 58022, 26852},
-        {0, 1536, 60806, 24261},
+        {530, 500, 65579, 26727},
+        {456, 915, 65000, 25886},
+        {1658, 1369, 63000, 26272},
+        {2272, 642, 63386, 28272},
     };
 
     // Frame 2 calibration data (example, replace with real measurements)
     std::vector<PointMapping> frame2_points = {
-        {0, 0, 65488, 24409},
-        {2720, 0, 62761, 27000},
-        {2720, 1536, 60397, 24454},
-        {0, 1536, 63306, 21818},
+        {479, 1372, 65579, 26727},
+        {1121, 1466, 65000, 25886},
+        {1991, 799, 63000, 26272},
+        {903, 311, 63386, 28272},
     };
 
     
