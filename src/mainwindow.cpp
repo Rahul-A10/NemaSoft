@@ -1923,6 +1923,7 @@ void MainWindow::onFocusCam2() {
 
 
 void MainWindow::onTriversePath() {
+        globle_vars.z_injection_value = m_z_injection->text().toDouble();
         log("Path button clicked.", "INFO");
         if (m_transformMatrix.empty()) {
             log("Transformation matrix not set. Please calculate transformation matrix first.", "WARNING");
@@ -1977,9 +1978,10 @@ void MainWindow::onGoToPosition1() {
     double x = m_x1->text().toDouble();
     double y = m_y1->text().toDouble();
     double z = m_z1->text().toDouble();
+    m_xyzStage.move(0, 0, z - globle_vars.current_z);
     m_xyzStage.move(x - globle_vars.current_x, 0, 0);
     m_xyzStage.move(0, y - globle_vars.current_y, 0);
-    m_xyzStage.move(0, 0, z - globle_vars.current_z);
+    
 }
 // movement slots
 void MainWindow::onLeftFastClicked() {

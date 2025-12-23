@@ -169,11 +169,11 @@ private:
     static constexpr double ARDUCAM_CROSSHAIR_X = 0.5;
     static constexpr double ARDUCAM_CROSSHAIR_Y = 0.5;
 
-    static constexpr double MICROCAM1_CROSSHAIR_X = 0.36;
-    static constexpr double MICROCAM1_CROSSHAIR_Y = 0.66;
+    static constexpr double MICROCAM1_CROSSHAIR_X = 0.51;
+    static constexpr double MICROCAM1_CROSSHAIR_Y = 0.41;
 
-    static constexpr double MICROCAM2_CROSSHAIR_X = 0.48;
-    static constexpr double MICROCAM2_CROSSHAIR_Y = 0.75;
+    static constexpr double MICROCAM2_CROSSHAIR_X = 0.49;
+    static constexpr double MICROCAM2_CROSSHAIR_Y = 0.35;
 
     QPointF m_arducamCrosshairPos;      // Center by default
     QPointF m_microCam1CrosshairPos;    // Custom position
