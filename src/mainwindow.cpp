@@ -1862,7 +1862,7 @@ void MainWindow::onZFocusCam1() {
         return;
     }
 
-    const int MAX_ITERATIONS = 4;
+    const int MAX_ITERATIONS = 1;
     const double Z_MOVEMENT_SCALE = 2.0; // Constant to multiply with image delta for Z movement (adjust as needed)
     const double CONVERGENCE_THRESHOLD = 10.0; // pixels - stop if vertical offset is smaller than this
     const double HORIZONTAL_MIDDLE_LINE = MICROCAM_HEIGHT / 2.0; // Middle line of the image
@@ -2005,9 +2005,9 @@ void MainWindow::onFocusCam1() {
 
         Eigen::Vector2d delta1 = mapper->computeStageDelta(CameraID::FRAME1, u, v, uc, vc);
         // Use delta2 as needed
-        delta1 = -delta1;
-        m_xyzStage.move(delta1.x(), 0, 0);
-		m_xyzStage.move(0, delta1.y(), 0);// invert x and y for stage movement as camera is rotated 90 degrees
+        delta1 = delta1;
+        m_xyzStage.move(delta1.y(), 0, 0);
+		m_xyzStage.move(0, -delta1.x(), 0);// invert x and y for stage movement as camera is rotated 90 degrees
         log(QString("Computed stage movement is x= %1, y= %2").arg(delta1.x()).arg(-delta1.y()), "INFO");
     }
     else {
@@ -2044,8 +2044,8 @@ void MainWindow::onFocusCam2() {
 		delta2 = -delta2;//invert for stage movement
         log(QString("Computed stage movement is x= %1, y= %2").arg(delta2.x()).arg(delta2.y()), "INFO");
 
-        m_xyzStage.move(delta2.x(), 0, 0);
-        m_xyzStage.move(0, delta2.y(), 0);
+        m_xyzStage.move(delta2.y(), 0, 0);
+        m_xyzStage.move(0, -delta2.x(), 0);
     }
     else {
         log("No annotations found for MicroCam2. Cannot focus.", "WARNING");

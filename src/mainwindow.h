@@ -170,8 +170,8 @@ private:
     static constexpr double ARDUCAM_CROSSHAIR_X = 0.5;
     static constexpr double ARDUCAM_CROSSHAIR_Y = 0.5;
 
-    static constexpr double MICROCAM1_CROSSHAIR_X = 0.51;
-    static constexpr double MICROCAM1_CROSSHAIR_Y = 0.41;
+    static constexpr double MICROCAM1_CROSSHAIR_X = 0.52;
+    static constexpr double MICROCAM1_CROSSHAIR_Y = 0.36;
 
     static constexpr double MICROCAM2_CROSSHAIR_X = 0.49;
     static constexpr double MICROCAM2_CROSSHAIR_Y = 0.35;
