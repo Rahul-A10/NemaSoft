@@ -147,6 +147,7 @@ public:
     void onPointMatchFound(QPointF targetPoint, float confidence);
 
     void onPointMatchFailed(const QString& reason);
+    void onZFocusCam1();
 	void onFocusCam1(); 
     void onFocusCam2();
     
@@ -295,6 +296,7 @@ private:
 	//Position display and go to position
     QPushButton* m_goToPositionBtn = nullptr;
     QPushButton* m_confirmAdjustmentBtn = nullptr;
+    QPushButton* m_ZFocus_cam1 = nullptr;
 	QPushButton* m_Focus_cam1 = nullptr;
     QPushButton* m_Focus_cam2 = nullptr;
 	QPushButton* m_abortPathBtn = nullptr;

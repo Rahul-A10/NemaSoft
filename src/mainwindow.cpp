@@ -298,6 +298,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_confirmAdjustmentBtn->setEnabled(false);
 	m_Focus_cam1 = new QPushButton("Focus Cam 1");
     m_Focus_cam2 = new QPushButton("Focus Cam 2");
+    m_ZFocus_cam1 = new QPushButton("Focus Z");
 	m_homeBtn = new QPushButton("🏠");
 	
 
@@ -322,6 +323,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     m_confirmAdjustmentBtn->setFixedSize(30, 30);
     m_Focus_cam1->setFixedSize(100,30);
     m_Focus_cam2->setFixedSize(100, 30);
+    m_ZFocus_cam1->setFixedSize(100, 30);
     m_homeBtn->setFixedSize(30, 30);
 
     movementLayout->addWidget(m_slant1Btn, 1, 1);
@@ -346,6 +348,7 @@ QGroupBox* MainWindow::setupMovementUI() {
 	movementLayout->addWidget(m_homeBtn, 5, 3);
     movementLayout->addWidget(m_Focus_cam1, 5, 4);
     movementLayout->addWidget(m_Focus_cam2, 6, 4);
+    movementLayout->addWidget(m_ZFocus_cam1, 7, 4);
 
     // Connect movement buttons to slots
     connect(m_leftFastBtn, &QPushButton::clicked, this, &MainWindow::onLeftFastClicked);
@@ -367,6 +370,7 @@ QGroupBox* MainWindow::setupMovementUI() {
     connect(m_abortPathBtn, &QPushButton::clicked, this, &MainWindow::onAbortPathClicked);
     //connect(m_resumePathBtn, &QPushButton::clicked, this, &MainWindow::onResumePathClicked);
     connect(m_confirmAdjustmentBtn, &QPushButton::clicked, this, &MainWindow::onConfirmAdjustmentClicked);
+    connect(m_ZFocus_cam1, &QPushButton::clicked, this, &MainWindow::onZFocusCam1);
     connect(m_Focus_cam1, &QPushButton::clicked, this, &MainWindow:: onFocusCam1);
     connect(m_Focus_cam2, &QPushButton::clicked, this, &MainWindow::onFocusCam2);
 	connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onHomeClicked);       
@@ -1848,6 +1852,131 @@ void MainWindow::onTraversalFinished(const QString& message) {
         m_traverserThread = nullptr;
     }
 	m_predictMicroImg->setEnabled(true);
+}
+
+void MainWindow::onZFocusCam1() {
+    log("Starting Z-focus for MicroCam1...", "INFO");
+
+    if (!m_microCam1Op.thrd) {
+        log("MicroCam1 is not running. Cannot perform Z-focus.", "WARNING");
+        return;
+    }
+
+    const int MAX_ITERATIONS = 4;
+    const double Z_MOVEMENT_SCALE = 0.5; // Constant to multiply with image delta for Z movement (adjust as needed)
+    const double CONVERGENCE_THRESHOLD = 10.0; // pixels - stop if vertical offset is smaller than this
+    const double HORIZONTAL_MIDDLE_LINE = MICROCAM_HEIGHT / 2.0; // Middle line of the image
+    const int GRID_ROWS = 10; // Divide frame into grid for focus analysis
+    const int GRID_COLS = 10;
+    const double FOCUS_THRESHOLD = 100.0; // Minimum Laplacian variance to consider a region "in focus"
+
+    for (int iteration = 0; iteration < MAX_ITERATIONS; ++iteration) {
+        log(QString("Z-focus iteration %1/%2").arg(iteration + 1).arg(MAX_ITERATIONS), "INFO");
+
+        // Get current frame
+        cv::Mat temp_frame1 = m_microCam1Op.camWorker->getCurrentFrame();
+
+        if (temp_frame1.empty()) {
+            log("Empty frame received. Cannot perform Z-focus.", "WARNING");
+            break;
+        }
+
+        // Convert to grayscale if needed
+        cv::Mat gray_frame;
+        if (temp_frame1.channels() == 3) {
+            cv::cvtColor(temp_frame1, gray_frame, cv::COLOR_BGR2GRAY);
+        }
+        else {
+            gray_frame = temp_frame1;
+        }
+
+        // Detect focused region using Laplacian Variance Method
+        cv::Point2d focused_region_center;
+        double max_focus_score = 0.0;
+        bool focus_found = false;
+
+        int cell_height = gray_frame.rows / GRID_ROWS;
+        int cell_width = gray_frame.cols / GRID_COLS;
+
+        // Analyze each grid cell
+        for (int row = 0; row < GRID_ROWS; ++row) {
+            for (int col = 0; col < GRID_COLS; ++col) {
+                // Define ROI for this grid cell
+                int x = col * cell_width;
+                int y = row * cell_height;
+                int w = (col == GRID_COLS - 1) ? (gray_frame.cols - x) : cell_width;
+                int h = (row == GRID_ROWS - 1) ? (gray_frame.rows - y) : cell_height;
+
+                cv::Rect roi(x, y, w, h);
+                cv::Mat cell = gray_frame(roi);
+
+                // Compute Laplacian variance (focus measure)
+                cv::Mat laplacian;
+                cv::Laplacian(cell, laplacian, CV_64F);
+                cv::Scalar mean, stddev;
+                cv::meanStdDev(laplacian, mean, stddev);
+                double variance = stddev[0] * stddev[0];
+
+                // Track the cell with highest focus score
+                if (variance > max_focus_score) {
+                    max_focus_score = variance;
+                    focused_region_center.x = x + w / 2.0;
+                    focused_region_center.y = y + h / 2.0;
+                    focus_found = true;
+                }
+            }
+        }
+
+        // Check if any region is in focus
+        if (!focus_found || max_focus_score < FOCUS_THRESHOLD) {
+            log("No region in focus.", "WARNING");
+            break;
+        }
+
+        log(QString("Iteration %1: Focused region found at Y = %2, Focus score = %3")
+            .arg(iteration + 1)
+            .arg(focused_region_center.y)
+            .arg(max_focus_score), "INFO");
+
+        // Calculate vertical offset from horizontal middle line
+        double vertical_offset = focused_region_center.y - HORIZONTAL_MIDDLE_LINE;
+
+        log(QString("Middle line = %1, Vertical offset = %2 pixels")
+            .arg(HORIZONTAL_MIDDLE_LINE)
+            .arg(vertical_offset), "INFO");
+
+        // Check convergence
+        if (std::abs(vertical_offset) < CONVERGENCE_THRESHOLD) {
+            log("Z-focus convergence achieved! Focused region is centered.", "INFO");
+            break;
+        }
+
+        // Calculate Z movement
+        // If focused region is above middle line (smaller Y value),
+        // move stage with +Z to bring it down
+        // If below middle line (larger Y value), move with -Z to bring it up
+        double z_movement = vertical_offset * Z_MOVEMENT_SCALE;
+
+        log(QString("Moving stage Z by %1 mm (vertical offset: %2 pixels, focus score: %3)")
+            .arg(z_movement)
+            .arg(vertical_offset)
+            .arg(max_focus_score), "INFO");
+
+        // Move stage in Z direction
+        if (z_movement > 2000) {
+            log("Z movement is not safe to move");
+        }
+        else {
+            m_xyzStage.move(0, 0, z_movement);
+
+        }
+        
+
+        // Wait for stage to settle and camera to update
+        QThread::msleep(300); // Adjust delay as needed for Z-axis movement
+    }
+
+    log("Z-focus operation completed", "INFO");
 }
 
 void MainWindow::onFocusCam1() {
