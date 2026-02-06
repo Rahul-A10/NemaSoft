@@ -1863,12 +1863,12 @@ void MainWindow::onZFocusCam1() {
     }
 
     const int MAX_ITERATIONS = 4;
-    const double Z_MOVEMENT_SCALE = 0.5; // Constant to multiply with image delta for Z movement (adjust as needed)
+    const double Z_MOVEMENT_SCALE = 2.0; // Constant to multiply with image delta for Z movement (adjust as needed)
     const double CONVERGENCE_THRESHOLD = 10.0; // pixels - stop if vertical offset is smaller than this
     const double HORIZONTAL_MIDDLE_LINE = MICROCAM_HEIGHT / 2.0; // Middle line of the image
     const int GRID_ROWS = 10; // Divide frame into grid for focus analysis
     const int GRID_COLS = 10;
-    const double FOCUS_THRESHOLD = 100.0; // Minimum Laplacian variance to consider a region "in focus"
+    const double FOCUS_THRESHOLD = 20.0; // Minimum Laplacian variance to consider a region "in focus"
 
     for (int iteration = 0; iteration < MAX_ITERATIONS; ++iteration) {
         log(QString("Z-focus iteration %1/%2").arg(iteration + 1).arg(MAX_ITERATIONS), "INFO");
@@ -1968,6 +1968,8 @@ void MainWindow::onZFocusCam1() {
         }
         else {
             m_xyzStage.move(0, 0, z_movement);
+            QThread::msleep(3000); // Adjust delay as needed for Z-axis movement
+
 
         }
         
